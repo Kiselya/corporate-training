@@ -262,6 +262,25 @@ export default function EmployeesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const csv = "\uFEFF" + "ФИО;Email;Телефон;Компания;Групп\n" +
+                filteredEmployees.map((e) =>
+                  `${e.fullName};${e.email || ""};${(e as any).phone || ""};${e.company?.name || ""};${e._count?.groupMembers || 0}`
+                ).join("\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `учащиеся_${new Date().toISOString().split("T")[0]}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Экспорт CSV
+          </Button>
           {isAdmin && (
             <Button variant="outline" className="relative" disabled={importing}>
               <Upload className="mr-1.5 h-4 w-4" />

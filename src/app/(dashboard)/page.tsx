@@ -386,17 +386,59 @@ function UserDashboard({ userName }: { userName: string }) {
             </Card>
           </div>
 
-          {/* Ссылка на детальный список */}
-          {groups.length > 0 && (
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.location.href = "/my-courses"}>
-              <CardContent className="py-6 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-slate-800">Перейти к моим курсам</p>
-                  <p className="text-sm text-slate-500">Детальный список, прогресс и фильтры</p>
-                </div>
-                <ArrowRight className="h-5 w-5 text-slate-400" />
+          {/* Ближайшее обучение */}
+          {groups.filter((g) => g.status === "PLANNED" || g.status === "IN_PROGRESS").length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Ближайшее обучение</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {groups
+                  .filter((g) => g.status === "PLANNED" || g.status === "IN_PROGRESS")
+                  .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                  .slice(0, 3)
+                  .map((g) => (
+                    <div key={g.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+                      <div>
+                        <p className="font-medium text-sm text-slate-800">{g.course?.name || g.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(g.startDate).toLocaleDateString("ru-RU")} — {new Date(g.endDate).toLocaleDateString("ru-RU")}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={g.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}>
+                          {g.status === "IN_PROGRESS" ? "В процессе" : "Планируется"}
+                        </Badge>
+                        <p className="text-xs text-slate-500 mt-1">{g.myProgress || 0}%</p>
+                      </div>
+                    </div>
+                  ))}
               </CardContent>
             </Card>
+          )}
+
+          {/* Быстрые ссылки */}
+          {groups.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.location.href = "/my-courses"}>
+                <CardContent className="py-5 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-slate-800">Мои курсы</p>
+                    <p className="text-xs text-slate-500">Прогресс и детали</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-slate-400" />
+                </CardContent>
+              </Card>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.location.href = "/my-groups"}>
+                <CardContent className="py-5 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-slate-800">Мои группы</p>
+                    <p className="text-xs text-slate-500">Участники и прогресс</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-slate-400" />
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {groups.length === 0 && (

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import GanttChart, { type GanttGroup } from "./GanttChart";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth, isAdminOrAbove } from "@/lib/auth-context";
+import { useAuth, isAdminOrAbove, isSuperAdmin } from "@/lib/auth-context";
 
 interface GanttGroupWithCompany extends GanttGroup {
   companyIds: string[];
@@ -35,7 +35,7 @@ export default function GanttPage() {
           }
           const mapped: GanttGroupWithCompany[] = profileData.groups.map((g: any) => ({
             id: g.id,
-            name: g.name || `Группа #${g.id.slice(0, 6)}`,
+            name: g.name || g.course?.name || "Без названия",
             courseName: g.course?.name || "—",
             startDate: g.startDate,
             endDate: g.endDate,
@@ -58,7 +58,7 @@ export default function GanttPage() {
         .then(([data, comps]) => {
           const mapped: GanttGroupWithCompany[] = data.map((g: any) => ({
             id: g.id,
-            name: g.name || `Группа #${g.id.slice(0, 6)}`,
+            name: g.name || g.course?.name || "Без названия",
             courseName: g.course?.name || "—",
             startDate: g.startDate,
             endDate: g.endDate,
@@ -70,7 +70,13 @@ export default function GanttPage() {
             companyIds: g.companyIds || [],
           }));
           setAllGroups(mapped);
-          setCompanies(comps.map((c: any) => ({ id: c.id, name: c.name })));
+          // ADMIN видит только свою компанию в фильтре
+          const allComps = comps.map((c: any) => ({ id: c.id, name: c.name }));
+          if (user?.role === "ADMIN" && user?.companyId) {
+            setCompanies(allComps.filter((c: CompanyOption) => c.id === user.companyId));
+          } else {
+            setCompanies(allComps);
+          }
         })
         .catch(console.error)
         .finally(() => setLoading(false));
@@ -154,7 +160,7 @@ export default function GanttPage() {
         </div>
       )}
       <Card className="flex-1 overflow-hidden">
-        <GanttChart groups={filteredGroups} readOnly={user ? !isAdminOrAbove(user.role) : false} />
+        <GanttChart groups={filteredGroups} readOnly={user ? !isAdminOrAbove(user.role) : false} showFinancials={isSuperAdmin(user?.role)} />
       </Card>
     </div>
   );

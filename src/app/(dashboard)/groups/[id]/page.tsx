@@ -45,7 +45,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { pluralizeDays } from "@/lib/types";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, isSuperAdmin } from "@/lib/auth-context";
 import {
   ArrowLeft,
   Plus,
@@ -307,7 +307,7 @@ export default function GroupDetailPage() {
           middleName: newEmpMiddleName || undefined,
           fullName,
           email: newEmpEmail || undefined,
-          companyId: newEmpCompanyId || undefined,
+          companyId: (authUser?.role === "ADMIN" && authUser?.companyId) ? authUser.companyId : (newEmpCompanyId || undefined),
         }),
       });
       let newEmp = await empRes.json();
@@ -501,8 +501,8 @@ export default function GroupDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Financial Info */}
-        <Card>
+        {/* Financial Info — только SUPER_ADMIN */}
+        {isSuperAdmin(authUser?.role) && <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Banknote className="h-4 w-4 text-muted-foreground" />
@@ -533,7 +533,7 @@ export default function GroupDetailPage() {
               </p>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Progress */}
         <Card>
@@ -680,22 +680,19 @@ export default function GroupDetailPage() {
               ) : (
                 <div className="space-y-2">
                   <Label>Сотрудник</Label>
-                  <Select
-                    value={selectedEmployeeId ?? undefined}
-                    onValueChange={(val) => setSelectedEmployeeId(val as string)}
+                  <select
+                    className="w-full h-10 px-3 border rounded-md text-sm bg-white"
+                    value={selectedEmployeeId || ""}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value || null)}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Выберите сотрудника" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableEmployees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.fullName}
-                          {emp.company ? ` (${emp.company.name})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">Выберите сотрудника</option>
+                    {availableEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.fullName}
+                        {emp.company ? ` (${emp.company.name})` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
               <div className="flex justify-end gap-2">
@@ -751,21 +748,22 @@ export default function GroupDetailPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Компания</Label>
-                  <Select
-                    value={newEmpCompanyId ?? undefined}
-                    onValueChange={(val) => setNewEmpCompanyId(val as string)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Выберите..." />
-                    </SelectTrigger>
-                    <SelectContent>
+                  {authUser?.role === "ADMIN" && authUser?.companyId ? (
+                    <div className="flex items-center h-10 px-3 rounded-md border bg-slate-50 text-sm text-slate-700">
+                      {allCompanies.find((c) => c.id === authUser.companyId)?.name || "Ваша компания"}
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full h-10 px-3 border rounded-md text-sm bg-white"
+                      value={newEmpCompanyId || ""}
+                      onChange={(e) => setNewEmpCompanyId(e.target.value || null)}
+                    >
+                      <option value="">Выберите...</option>
                       {allCompanies.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </select>
+                  )}
                 </div>
               </div>
               {newEmpLastName && newEmpFirstName && (

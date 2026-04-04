@@ -43,6 +43,7 @@ const adminNavigation = [
 const userNavigation = [
   { name: "Дашборд", href: "/", icon: LayoutDashboard },
   { name: "Мои курсы", href: "/my-courses", icon: BookOpen },
+  { name: "Мои группы", href: "/my-groups", icon: Users },
   { name: "Диаграмма Ганта", href: "/gantt", icon: BarChart3 },
 ];
 

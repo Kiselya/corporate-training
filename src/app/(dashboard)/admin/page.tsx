@@ -15,6 +15,7 @@ import {
   UserCheck,
   Trash2,
   Mail,
+  Pencil,
 } from "lucide-react";
 import { useAuth, isAdminOrAbove, isSuperAdmin, ROLE_LABELS } from "@/lib/auth-context";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -260,6 +261,8 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
+  const [editEmailValue, setEditEmailValue] = useState("");
   const router = useRouter();
 
   const fetchUsers = useCallback(async () => {
@@ -358,6 +361,26 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
         const data = await res.json().catch(() => null);
         alert(data?.error || "Ошибка");
       }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function saveEmail(userId: string) {
+    if (!editEmailValue.trim()) return;
+    setUpdatingId(userId);
+    try {
+      const res = await fetch(`/api/auth/users/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: editEmailValue.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "Ошибка");
+      }
+      setEditingEmail(null);
+      await fetchUsers();
     } finally {
       setUpdatingId(null);
     }
@@ -485,7 +508,7 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
                 {canChangeRoles && <TableHead>Компания</TableHead>}
                 <TableHead>Дата регистрации</TableHead>
                 <TableHead>Статус</TableHead>
-                {canChangeRoles && <TableHead className="text-right">Действия</TableHead>}
+                {(canChangeRoles || currentUser.role === "ADMIN") && <TableHead className="text-right">Действия</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -498,18 +521,46 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
                       {isMe && <span className="ml-1 text-xs text-muted-foreground">(вы)</span>}
                     </TableCell>
                     <TableCell>
-                      <button
-                        className="group flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-                        onClick={() => copyEmail(u.email, u.id)}
-                        title="Скопировать email"
-                      >
-                        {u.email}
-                        {copiedEmail === u.id ? (
-                          <Check className="h-3 w-3 text-green-500" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
-                      </button>
+                      {editingEmail === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="email"
+                            value={editEmailValue}
+                            onChange={(e) => setEditEmailValue(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && saveEmail(u.id)}
+                            className="h-7 px-2 text-sm border rounded-md w-48"
+                            autoFocus
+                          />
+                          <Button variant="ghost" size="sm" onClick={() => saveEmail(u.id)} className="h-7 px-2">
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingEmail(null)} className="h-7 px-2">
+                            <Ban className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          className="group flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+                          onClick={() => {
+                            if (isMe) {
+                              setEditingEmail(u.id);
+                              setEditEmailValue(u.email);
+                            } else {
+                              copyEmail(u.email, u.id);
+                            }
+                          }}
+                          title={isMe ? "Изменить email" : "Скопировать email"}
+                        >
+                          {u.email}
+                          {isMe ? (
+                            <Pencil className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          ) : copiedEmail === u.id ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </button>
+                      )}
                     </TableCell>
                     <TableCell>
                       {canChangeRoles && !isMe ? (
@@ -551,34 +602,53 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
                         {u.isActive ? "Активен" : "Заблокирован"}
                       </Badge>
                     </TableCell>
-                    {canChangeRoles && (
+                    {(canChangeRoles || currentUser.role === "ADMIN") && (
                       <TableCell className="text-right">
                         {!isMe && (
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => impersonateUser(u.id)}
-                              disabled={updatingId === u.id}
-                              className="text-blue-500 hover:text-blue-700"
-                              title="Войти как этот пользователь"
-                            >
-                              <UserCheck className="h-3.5 w-3.5 mr-1" />
-                              Войти как
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleActive(u.id, !u.isActive)}
-                              disabled={updatingId === u.id}
-                              className={u.isActive ? "text-red-500 hover:text-red-700" : "text-green-600 hover:text-green-700"}
-                            >
-                              {u.isActive ? (
-                                <><Ban className="h-3.5 w-3.5 mr-1" /> Заблокировать</>
-                              ) : (
-                                <><Check className="h-3.5 w-3.5 mr-1" /> Разблокировать</>
-                              )}
-                            </Button>
+                            {/* ADMIN может войти только за USER, SUPER_ADMIN — за всех */}
+                            {(canChangeRoles || u.role === "USER") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => impersonateUser(u.id)}
+                                disabled={updatingId === u.id}
+                                className="text-blue-500 hover:text-blue-700"
+                                title="Войти как этот пользователь"
+                              >
+                                <UserCheck className="h-3.5 w-3.5 mr-1" />
+                                Войти как
+                              </Button>
+                            )}
+                            {/* Блокировка/удаление: ADMIN только для USER, SUPER_ADMIN для всех */}
+                            {(canChangeRoles || u.role === "USER") && (<>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleActive(u.id, !u.isActive)}
+                                disabled={updatingId === u.id}
+                                className={u.isActive ? "text-red-500 hover:text-red-700" : "text-green-600 hover:text-green-700"}
+                              >
+                                {u.isActive ? (
+                                  <><Ban className="h-3.5 w-3.5 mr-1" /> Заблокировать</>
+                                ) : (
+                                  <><Check className="h-3.5 w-3.5 mr-1" /> Разблокировать</>
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm(`Удалить пользователя ${u.name || u.email}? Это действие необратимо.`)) {
+                                    fetch(`/api/auth/users/${u.id}`, { method: "DELETE" }).then(() => fetchUsers());
+                                  }
+                                }}
+                                disabled={updatingId === u.id}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-1" /> Удалить
+                              </Button>
+                            </>)}
                           </div>
                         )}
                       </TableCell>

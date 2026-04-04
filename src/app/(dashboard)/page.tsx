@@ -424,6 +424,17 @@ export default function DashboardPage() {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set());
   const [companySearch, setCompanySearch] = useState("");
+  const [showConflicts, setShowConflicts] = useState(false);
+  const [conflictDetails, setConflictDetails] = useState<{ description: string }[]>([]);
+
+  useEffect(() => {
+    if (showConflicts && conflictDetails.length === 0) {
+      fetch("/api/conflicts")
+        .then((r) => r.json())
+        .then((d) => setConflictDetails(d.conflicts || []))
+        .catch(console.error);
+    }
+  }, [showConflicts]);
 
   const toggleCompany = (id: string) => {
     setSelectedCompanyIds((prev) => {
@@ -553,7 +564,7 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={data.analytical.coursePopularity}
-                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                    margin={{ left: 10, right: 20, top: 15, bottom: 5 }}
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -834,7 +845,7 @@ export default function DashboardPage() {
                   {data.financial.revenueByMonthByCompany.length > 0 && Object.keys(data.financial.companyNames).length > 0 ? (
                     <BarChart
                       data={data.financial.revenueByMonthByCompany}
-                      margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                      margin={{ left: 10, right: 20, top: 15, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} />
@@ -864,7 +875,7 @@ export default function DashboardPage() {
                   ) : (
                     <BarChart
                       data={filteredRevenue}
-                      margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                      margin={{ left: 10, right: 20, top: 15, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} />
@@ -1042,7 +1053,7 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={data.analytical.coursePopularity}
-                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                    margin={{ left: 10, right: 20, top: 15, bottom: 5 }}
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -1172,16 +1183,27 @@ export default function DashboardPage() {
         <TabsContent value="operational" className="space-y-6 mt-4">
           {/* Conflict alert banner */}
           {data.operational.conflictsCount > 0 && (
-            <Alert variant="destructive" className="border-red-200 bg-red-50 print-hidden">
+            <Alert variant="destructive" className="border-red-200 bg-red-50">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-red-800">
-                Обнаружены конфликты в расписании
+              <AlertTitle className="text-red-800 flex items-center justify-between">
+                <span>Обнаружены конфликты в расписании ({conflictDetails.length > 0 ? conflictDetails.length : data.operational.conflictsCount})</span>
+                <button
+                  onClick={() => setShowConflicts(!showConflicts)}
+                  className="text-xs font-normal underline hover:no-underline"
+                >
+                  {showConflicts ? "Скрыть" : "Подробнее"}
+                </button>
               </AlertTitle>
-              <AlertDescription className="text-red-700">
-                Найдено конфликтов: {data.operational.conflictsCount}. Некоторые
-                сотрудники записаны в группы с пересекающимися датами.
-                Проверьте раздел «Учебные группы» в боковом меню.
-              </AlertDescription>
+              {showConflicts && conflictDetails.length > 0 && (
+                <AlertDescription className="mt-2 space-y-1.5">
+                  {conflictDetails.map((c, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm text-red-700">
+                      <span className="shrink-0 mt-0.5">•</span>
+                      <span>{c.description}</span>
+                    </div>
+                  ))}
+                </AlertDescription>
+              )}
             </Alert>
           )}
 

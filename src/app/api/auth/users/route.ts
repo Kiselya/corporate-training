@@ -9,9 +9,15 @@ import bcrypt from "bcryptjs";
  */
 export async function GET() {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
+
+    // ADMIN видит только пользователей своей компании
+    const where = session.role === "ADMIN" && session.companyId
+      ? { companyId: session.companyId }
+      : {};
 
     const users = await prisma.user.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

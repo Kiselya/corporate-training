@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin, setSessionCookie, type SessionUser } from "@/lib/auth";
+import { requireAdmin, setSessionCookie, type SessionUser } from "@/lib/auth";
 
 /**
  * POST /api/auth/impersonate
- * Allows SUPER_ADMIN to impersonate another user.
- * Creates a session for the target user with impersonatedBy field.
+ * SUPER_ADMIN может войти за любого пользователя.
+ * ADMIN может войти только за USER своей компании.
  */
 export async function POST(request: Request) {
   try {
-    const superAdmin = await requireSuperAdmin();
+    const admin = await requireAdmin();
 
     const body = await request.json();
     const { userId } = body;
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (userId === superAdmin.id) {
+    if (userId === admin.id) {
       return NextResponse.json(
         { error: "Нельзя войти от своего имени" },
         { status: 400 }
@@ -39,7 +39,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create session for the target user with impersonatedBy
+    // ADMIN может входить только за USER своей компании
+    if (admin.role === "ADMIN") {
+      if (targetUser.role !== "USER") {
+        return NextResponse.json(
+          { error: "Можно войти только за пользователя с ролью Пользователь" },
+          { status: 403 }
+        );
+      }
+      if (admin.companyId && targetUser.companyId !== admin.companyId) {
+        return NextResponse.json(
+          { error: "Можно войти только за пользователя вашей компании" },
+          { status: 403 }
+        );
+      }
+    }
+
     const sessionUser: SessionUser = {
       id: targetUser.id,
       email: targetUser.email,
@@ -47,7 +62,8 @@ export async function POST(request: Request) {
       role: targetUser.role as SessionUser["role"],
       mustChangePassword: false, // Don't force password change when impersonating
       ...(targetUser.companyId ? { companyId: targetUser.companyId } : {}),
-      impersonatedBy: superAdmin.id,
+      // Сохраняем оригинального инициатора (если уже в режиме имперсонации — берём его impersonatedBy)
+      impersonatedBy: admin.impersonatedBy || admin.id,
     };
 
     await setSessionCookie(sessionUser);

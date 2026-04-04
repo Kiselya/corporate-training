@@ -192,18 +192,29 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
             )}
           </div>
         </div>
-        {isAdminOrAbove(authUser?.role) && !hasAccount && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setGrantEmail(employee.email || "");
-              setGrantOpen(true);
-            }}
-          >
-            <ShieldCheck className="h-4 w-4 mr-1" />
-            Назначить права
-          </Button>
+        {isAdminOrAbove(authUser?.role) && (
+          hasAccount ? (
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700 font-medium">
+                {(employee as any).user?.role === "SUPER_ADMIN" ? "Суперадмин" :
+                 (employee as any).user?.role === "ADMIN" ? "Администратор" : "Пользователь"}
+              </span>
+              <span className="text-xs text-slate-400">({(employee as any).user?.email})</span>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setGrantEmail(employee.email || "");
+                setGrantOpen(true);
+              }}
+            >
+              <ShieldCheck className="h-4 w-4 mr-1" />
+              Назначить права
+            </Button>
+          )
         )}
       </div>
 

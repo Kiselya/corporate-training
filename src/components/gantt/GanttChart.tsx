@@ -76,7 +76,7 @@ function formatCurrency(value: number): string {
 }
 
 // ─── Основной компонент ────────────────────────────────────
-export default function GanttChart({ groups: rawGroups, readOnly = false }: { groups: GanttGroup[]; readOnly?: boolean }) {
+export default function GanttChart({ groups: rawGroups, readOnly = false, showFinancials = true }: { groups: GanttGroup[]; readOnly?: boolean; showFinancials?: boolean }) {
   // Сортируем группы по дате начала для логичного отображения на диаграмме
   const groups = useMemo(
     () => [...rawGroups].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()),
@@ -301,7 +301,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
             >
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-slate-800 truncate">
-                  {group.name || `Группа #${i + 1}`}
+                  {group.name}
                 </div>
                 <div className="text-xs text-slate-500 truncate">{group.courseName}</div>
               </div>
@@ -458,8 +458,8 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
         <div className="flex items-center gap-6 px-4 py-2 border-t bg-slate-50 text-xs text-slate-600">
           <span>Всего групп: <strong>{groups.length}</strong></span>
           <span>
-            Общий бюджет:{" "}
-            <strong>{formatCurrency(groups.reduce((sum, g) => sum + g.totalCost, 0))}</strong>
+            {showFinancials && <>Общий бюджет:{" "}
+            <strong>{formatCurrency(groups.reduce((sum, g) => sum + g.totalCost, 0))}</strong></>}
           </span>
           <span>
             Средний прогресс:{" "}

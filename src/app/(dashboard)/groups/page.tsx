@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import { Plus, Users, Calendar, Search, ArrowUpDown, SlidersHorizontal, Inbox } from "lucide-react";
 import { pluralizeDays } from "@/lib/types";
+import { useAuth, isSuperAdmin } from "@/lib/auth-context";
 
 function formatRubles(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(value) + " ₽";
@@ -72,6 +73,8 @@ interface GroupData {
 
 export default function GroupsPage() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
+  const showFinancials = isSuperAdmin(authUser?.role);
   const [groups, setGroups] = useState<GroupData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -281,7 +284,7 @@ export default function GroupsPage() {
                 <span>Сортировка:</span>
                 {([
                   { field: "date" as SortField, label: "Дата" },
-                  { field: "cost" as SortField, label: "Стоимость" },
+                  ...(showFinancials ? [{ field: "cost" as SortField, label: "Стоимость" }] : []),
                   { field: "progress" as SortField, label: "Прогресс" },
                   { field: "name" as SortField, label: "Название" },
                 ]).map(({ field, label }) => (
@@ -313,9 +316,9 @@ export default function GroupsPage() {
               <span>
                 Участников: <strong>{summary.totalMembers}</strong>
               </span>
-              <span>
+              {showFinancials && <span>
                 Бюджет: <strong>{formatRubles(summary.totalBudget)}</strong>
-              </span>
+              </span>}
               <span>
                 Ср. прогресс: <strong>{summary.avgProgress}%</strong>
               </span>
@@ -379,9 +382,9 @@ export default function GroupsPage() {
                             <Users className="h-3.5 w-3.5" />
                             <span>{group.memberCount} участн.</span>
                           </div>
-                          <span className="font-semibold text-green-700">
+                          {showFinancials && <span className="font-semibold text-green-700">
                             {formatRubles(group.totalCost)}
-                          </span>
+                          </span>}
                         </div>
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs text-slate-500">

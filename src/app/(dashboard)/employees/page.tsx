@@ -458,9 +458,21 @@ export default function EmployeesPage() {
                 <Input
                   id="emp-phone"
                   value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                  placeholder="+7 (999) 123-45-67"
+                  onChange={(e) => {
+                    // Оставляем только цифры и +
+                    let v = e.target.value.replace(/[^\d+]/g, "");
+                    if (v && !v.startsWith("+7")) {
+                      v = v.startsWith("7") ? "+" + v : v.startsWith("8") ? "+7" + v.slice(1) : "+7" + v;
+                    }
+                    if (v.length > 12) v = v.slice(0, 12); // +7 + 10 цифр = 12 символов
+                    setFormPhone(v);
+                  }}
+                  placeholder="+7XXXXXXXXXX"
+                  maxLength={12}
                 />
+                {formPhone && formPhone.length > 0 && formPhone.length < 12 && (
+                  <p className="text-xs text-amber-600">Введите 10 цифр после +7</p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -474,18 +486,24 @@ export default function EmployeesPage() {
             </div>
             <div className="space-y-2">
               <Label>Компания</Label>
-              <select
-                className="w-full h-10 px-3 border rounded-md text-sm bg-white"
-                value={formCompanyId}
-                onChange={(e) => setFormCompanyId(e.target.value)}
-              >
-                <option value="">Выберите компанию</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              {user?.role === "ADMIN" && user?.companyId ? (
+                <div className="flex items-center h-10 px-3 rounded-md border bg-slate-50 text-sm text-slate-700">
+                  {companies.find((c) => c.id === user.companyId)?.name || "Ваша компания"}
+                </div>
+              ) : (
+                <select
+                  className="w-full h-10 px-3 border rounded-md text-sm bg-white"
+                  value={formCompanyId}
+                  onChange={(e) => setFormCompanyId(e.target.value)}
+                >
+                  <option value="">Выберите компанию</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
           <DialogFooter>

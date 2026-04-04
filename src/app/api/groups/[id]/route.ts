@@ -48,32 +48,37 @@ export async function GET(
     }
 
     // ADMIN может видеть только группы с сотрудниками своей компании
-    const isAdmin = session.role === "ADMIN" && session.companyId;
+    let adminCompanyId = session.companyId;
+    if (session.role === "ADMIN" && !adminCompanyId) {
+      const adminUser = await prisma.user.findUnique({ where: { id: session.id }, select: { companyId: true } });
+      adminCompanyId = adminUser?.companyId ?? null;
+    }
+    const isAdmin = session.role === "ADMIN" && adminCompanyId;
     if (isAdmin) {
       const hasCompanyMembers = group.members.some(
-        (m) => m.employee?.companyId === session.companyId
+        (m) => m.employee?.companyId === adminCompanyId
       );
       if (!hasCompanyMembers) {
         return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
       }
     }
 
-    // Вычисляемые поля — по ВСЕМ участникам (бизнес-данные группы)
-    const memberCount = group.members.length;
+    // ADMIN видит только сотрудников своей компании
+    const visibleMembers = isAdmin
+      ? group.members.filter((m) => m.employee?.companyId === adminCompanyId)
+      : group.members;
+
+    // Вычисляемые поля — по видимым участникам (для ADMIN — только свои)
+    const memberCount = visibleMembers.length;
     const discount = group.discountPercent ?? 0;
     const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
     const avgProgress =
       memberCount > 0
         ? Math.round(
-            group.members.reduce((sum, m) => sum + m.progressPercent, 0) /
+            visibleMembers.reduce((sum, m) => sum + m.progressPercent, 0) /
               memberCount
           )
         : 0;
-
-    // ADMIN видит только сотрудников своей компании
-    const visibleMembers = isAdmin
-      ? group.members.filter((m) => m.employee?.companyId === session.companyId)
-      : group.members;
 
     return NextResponse.json({
       ...group,

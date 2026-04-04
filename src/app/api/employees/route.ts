@@ -13,9 +13,16 @@ export async function GET() {
 
     let whereClause = {};
 
-    if (session.role === "ADMIN" && session.companyId) {
+    if (session.role === "ADMIN") {
       // ADMIN видит только сотрудников своей компании
-      whereClause = { companyId: session.companyId };
+      let adminCompanyId = session.companyId;
+      if (!adminCompanyId) {
+        // Fallback: берём companyId из БД если его нет в JWT
+        const adminUser = await prisma.user.findUnique({ where: { id: session.id }, select: { companyId: true } });
+        adminCompanyId = adminUser?.companyId ?? null;
+      }
+      if (!adminCompanyId) return NextResponse.json([]);
+      whereClause = { companyId: adminCompanyId };
     } else if (session.role === "USER") {
       // Находим компанию пользователя через привязанного сотрудника
       const user = await prisma.user.findUnique({

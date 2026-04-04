@@ -11,6 +11,16 @@ export async function GET() {
       return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
 
+    // Определяем companyId для ADMIN (с fallback на БД)
+    let adminCompanyId: string | null = null;
+    if (session.role === "ADMIN") {
+      adminCompanyId = session.companyId || null;
+      if (!adminCompanyId) {
+        const adminUser = await prisma.user.findUnique({ where: { id: session.id }, select: { companyId: true } });
+        adminCompanyId = adminUser?.companyId ?? null;
+      }
+    }
+
     // Фильтрация по роли
     let whereClause = {};
     if (session.role === "USER") {
@@ -39,13 +49,13 @@ export async function GET() {
           some: { employeeId },
         },
       };
-    } else if (session.role === "ADMIN" && session.companyId) {
-      // ADMIN видит только группы, где есть сотрудники его компании
+    } else if (session.role === "ADMIN") {
+      if (!adminCompanyId) return NextResponse.json([]);
       whereClause = {
         members: {
           some: {
             employee: {
-              companyId: session.companyId,
+              companyId: adminCompanyId,
             },
           },
         },
@@ -98,28 +108,31 @@ export async function GET() {
       await Promise.all(statusUpdates);
     }
 
-    // Вычисляемые поля для каждой группы
-    const groupsWithComputed = groups.map((group) => {
-      const memberCount = group.members.length;
+    // ADMIN видит только своих сотрудников в каждой группе
+    const isAdminFiltered = session.role === "ADMIN" && adminCompanyId;
 
-      // Расчёт общей стоимости с учётом скидки
+    const groupsWithComputed = groups.map((group) => {
+      const visibleMembers = isAdminFiltered
+        ? group.members.filter((m) => m.employee?.companyId === adminCompanyId)
+        : group.members;
+
+      const memberCount = visibleMembers.length;
       const discount = group.discountPercent ?? 0;
       const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
 
-      // Расчёт среднего прогресса: сумма progressPercent всех участников / их количество
       const avgProgress =
         memberCount > 0
           ? Math.round(
-              group.members.reduce((sum, m) => sum + m.progressPercent, 0) /
+              visibleMembers.reduce((sum, m) => sum + m.progressPercent, 0) /
                 memberCount
             )
           : 0;
 
-      // Уникальные companyId участников (для фильтрации Ганта по компании)
       const companyIds = [...new Set(group.members.map((m) => m.employee?.companyId).filter(Boolean))];
 
       return {
         ...group,
+        members: visibleMembers,
         memberCount,
         totalCost,
         avgProgress,

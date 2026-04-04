@@ -80,15 +80,42 @@ export async function POST(request: Request) {
 
     // Создание пользователя и обновление инвайта в транзакции
     const user = await prisma.$transaction(async (tx) => {
+      // Автосоздание Employee при регистрации
+      const trimmedName = name?.trim() || "";
+      const nameParts = trimmedName.split(/\s+/);
+      const lastName = nameParts[0] || "";
+      const firstName = nameParts[1] || "";
+      const middleName = nameParts.slice(2).join(" ") || null;
+
+      // Пробуем найти существующего Employee по email
+      let employee = await tx.employee.findFirst({
+        where: { email: email.toLowerCase().trim() },
+      });
+
+      // Если не нашли — создаём нового
+      if (!employee && lastName) {
+        employee = await tx.employee.create({
+          data: {
+            lastName,
+            firstName,
+            middleName,
+            fullName: trimmedName || email.toLowerCase().trim(),
+            email: email.toLowerCase().trim(),
+            companyId: invite.companyId || null,
+          },
+        });
+      }
+
       const newUser = await tx.user.create({
         data: {
           email: email.toLowerCase().trim(),
           passwordHash,
-          name: name?.trim() || null,
+          name: trimmedName || null,
           role: invite.role,
-          mustChangePassword: true,
+          mustChangePassword: false,
           companyId: invite.companyId || null,
           inviteLinkId: invite.id,
+          employeeId: employee?.id || null,
         },
       });
 

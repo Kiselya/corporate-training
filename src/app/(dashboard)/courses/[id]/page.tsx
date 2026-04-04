@@ -482,8 +482,8 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
-      {/* Groups Section */}
-      {course.trainingGroups.length > 0 && (
+      {/* Groups Section — ADMIN/SUPER_ADMIN видят все, USER — не видит (у него "Мои группы") */}
+      {isAdmin && course.trainingGroups.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">

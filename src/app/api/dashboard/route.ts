@@ -16,29 +16,43 @@ const MONTH_NAMES_RU = [
   "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек",
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Фильтр по компании (опционально, поддерживает несколько через запятую)
+    const { searchParams } = new URL(request.url);
+    const companyIdsParam = searchParams.get("companyIds");
+    const companyIds = companyIdsParam ? companyIdsParam.split(",").filter(Boolean) : [];
+
+    const groupWhere = companyIds.length > 0
+      ? { members: { some: { employee: { companyId: { in: companyIds } } } } }
+      : {};
+    const empWhere = companyIds.length > 0 ? { companyId: { in: companyIds } } : {};
+
     const [
       totalGroups,
       totalEmployees,
       totalCourses,
+      totalSpecifications,
       groups,
       groupsByStatus,
       upcomingTrainings,
       employeesByCompany,
     ] = await Promise.all([
-      prisma.trainingGroup.count(),
-      prisma.employee.count(),
+      prisma.trainingGroup.count({ where: groupWhere }),
+      prisma.employee.count({ where: empWhere }),
       prisma.course.count(),
+      prisma.specification.count({ where: companyIds.length > 0 ? { companyId: { in: companyIds } } : {} }),
 
       // Все группы с участниками и прогрессом — для всех расчётов
       prisma.trainingGroup.findMany({
+        where: groupWhere,
         include: {
           course: true,
           members: {
             select: {
               progressPercent: true,
               employeeId: true,
+              employee: { select: { companyId: true } },
             },
           },
           _count: { select: { members: true } },
@@ -47,11 +61,12 @@ export async function GET() {
 
       prisma.trainingGroup.groupBy({
         by: ["status"],
+        where: groupWhere,
         _count: { id: true },
       }),
 
       prisma.trainingGroup.findMany({
-        where: { status: { in: ["PLANNED", "IN_PROGRESS"] } },
+        where: { ...groupWhere, status: { in: ["PLANNED", "IN_PROGRESS"] } },
         include: {
           course: true,
           _count: { select: { members: true } },
@@ -70,8 +85,12 @@ export async function GET() {
     ]);
 
     // ─── Summary ─────────────────────────────────────────────────
+    // Расчёт стоимости с учётом скидки (discountPercent)
+    const calcCost = (price: number, members: number, discount?: number | null) =>
+      price * members * (1 - (discount ?? 0) / 100);
+
     const totalBudget = groups.reduce(
-      (sum, g) => sum + g.pricePerPerson * g._count.members,
+      (sum, g) => sum + calcCost(g.pricePerPerson, g._count.members, g.discountPercent),
       0,
     );
 
@@ -93,7 +112,7 @@ export async function GET() {
     for (const g of groups) {
       const d = new Date(g.startDate);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
-      const cost = g.pricePerPerson * g._count.members;
+      const cost = calcCost(g.pricePerPerson, g._count.members, g.discountPercent);
       revenueByMonthMap[key] = (revenueByMonthMap[key] || 0) + cost;
     }
     const revenueByMonth = Object.entries(revenueByMonthMap)
@@ -107,6 +126,51 @@ export async function GET() {
         };
       });
 
+    // 1b. Revenue by month broken down by company (для stacked bar chart)
+    // Определяем "основную компанию" группы по большинству участников
+    const revenueByMonthCompanyMap: Record<string, Record<string, number>> = {};
+    for (const g of groups) {
+      const d = new Date(g.startDate);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+      const cost = calcCost(g.pricePerPerson, g._count.members, g.discountPercent);
+
+      // Считаем сколько участников от каждой компании
+      const companyCounts: Record<string, number> = {};
+      for (const m of g.members) {
+        const cId = m.employee?.companyId || "unknown";
+        companyCounts[cId] = (companyCounts[cId] || 0) + 1;
+      }
+      // Распределяем стоимость пропорционально участникам от каждой компании
+      const totalMembers = g._count.members || 1;
+      for (const [cId, count] of Object.entries(companyCounts)) {
+        if (!revenueByMonthCompanyMap[monthKey]) revenueByMonthCompanyMap[monthKey] = {};
+        const share = (cost * count) / totalMembers;
+        revenueByMonthCompanyMap[monthKey][cId] = (revenueByMonthCompanyMap[monthKey][cId] || 0) + share;
+      }
+    }
+
+    // Собираем все уникальные companyId
+    const allCompanyIds = [...new Set(groups.flatMap((g) => g.members.map((m) => m.employee?.companyId).filter(Boolean)))];
+    // Получаем имена компаний
+    const companyNames = await prisma.company.findMany({
+      where: { id: { in: allCompanyIds as string[] } },
+      select: { id: true, name: true },
+    });
+    const companyNameMap: Record<string, string> = {};
+    for (const c of companyNames) companyNameMap[c.id] = c.name;
+
+    const revenueByMonthByCompany = Object.entries(revenueByMonthCompanyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, companies]) => {
+        const [year, monthIdx] = key.split("-");
+        const monthName = MONTH_NAMES_RU[parseInt(monthIdx, 10)];
+        const entry: Record<string, unknown> = { month: `${monthName} ${year}` };
+        for (const [cId, revenue] of Object.entries(companies)) {
+          entry[companyNameMap[cId] || cId] = Math.round(revenue);
+        }
+        return entry;
+      });
+
     // 2. Revenue by course (с участниками)
     const revenueByCourseMap: Record<
       string,
@@ -117,7 +181,7 @@ export async function GET() {
       if (!revenueByCourseMap[name]) {
         revenueByCourseMap[name] = { revenue: 0, groups: 0, participants: 0 };
       }
-      revenueByCourseMap[name].revenue += g.pricePerPerson * g._count.members;
+      revenueByCourseMap[name].revenue += calcCost(g.pricePerPerson, g._count.members, g.discountPercent);
       revenueByCourseMap[name].groups += 1;
       revenueByCourseMap[name].participants += g._count.members;
     }
@@ -139,7 +203,7 @@ export async function GET() {
       .map((g) => ({
         name: g.name || "Без названия",
         courseName: g.course.name,
-        totalCost: Math.round(g.pricePerPerson * g._count.members),
+        totalCost: Math.round(calcCost(g.pricePerPerson, g._count.members, g.discountPercent)),
         memberCount: g._count.members,
       }))
       .sort((a, b) => b.totalCost - a.totalCost)
@@ -268,10 +332,13 @@ export async function GET() {
         totalGroups,
         totalEmployees,
         totalCourses,
+        totalSpecifications,
         totalBudget: Math.round(totalBudget),
       },
       financial: {
         revenueByMonth,
+        revenueByMonthByCompany,
+        companyNames: companyNameMap,
         revenueByCourse,
         avgCostPerEmployee,
         topExpensiveGroups,
@@ -292,7 +359,7 @@ export async function GET() {
           endDate: t.endDate,
           status: t.status,
           memberCount: t._count.members,
-          totalCost: t.pricePerPerson * t._count.members,
+          totalCost: Math.round(t.pricePerPerson * t._count.members * (1 - (t.discountPercent ?? 0) / 100)),
         })),
         conflictsCount,
         statuses: chartStatuses,

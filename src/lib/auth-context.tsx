@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER";
 
@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   const fetchUser = useCallback(async () => {
     try {
@@ -75,9 +76,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Рефетч сессии при каждой смене pathname
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]);
+  }, [fetchUser, pathname]);
+
+  // Принудительная перезагрузка при восстановлении из bfcache (кнопка "Назад" браузера)
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   const logout = useCallback(async () => {
     try {

@@ -38,11 +38,14 @@ export async function GET(
     }
 
     // Расчёт вычисляемых полей спецификации (стоимость, НДС, итого)
-    const groupCosts = specification.trainingGroups.map((group) => ({
-      ...group,
-      memberCount: group.members.length,
-      totalCost: group.pricePerPerson * group.members.length,
-    }));
+    const groupCosts = specification.trainingGroups.map((group) => {
+      const discount = group.discountPercent ?? 0;
+      return {
+        ...group,
+        memberCount: group.members.length,
+        totalCost: group.pricePerPerson * group.members.length * (1 - discount / 100),
+      };
+    });
 
     // Подытог: сумма стоимостей всех групп
     const subtotal = groupCosts.reduce((sum, g) => sum + g.totalCost, 0);

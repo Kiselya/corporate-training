@@ -102,8 +102,9 @@ export async function GET() {
     const groupsWithComputed = groups.map((group) => {
       const memberCount = group.members.length;
 
-      // Расчёт общей стоимости: зафиксированная цена на момент создания группы * кол-во участников
-      const totalCost = group.pricePerPerson * memberCount;
+      // Расчёт общей стоимости с учётом скидки
+      const discount = group.discountPercent ?? 0;
+      const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
 
       // Расчёт среднего прогресса: сумма progressPercent всех участников / их количество
       const avgProgress =
@@ -114,11 +115,15 @@ export async function GET() {
             )
           : 0;
 
+      // Уникальные companyId участников (для фильтрации Ганта по компании)
+      const companyIds = [...new Set(group.members.map((m) => m.employee?.companyId).filter(Boolean))];
+
       return {
         ...group,
         memberCount,
         totalCost,
         avgProgress,
+        companyIds,
       };
     });
 

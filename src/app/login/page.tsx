@@ -50,16 +50,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-sm px-4">
-      <Card>
-        <CardHeader className="text-center">
+    <div className="w-full max-w-md px-4">
+      {/* Gradient accent line */}
+      <div className="mx-auto max-w-md mb-0 h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-t-lg" />
+      <Card className="rounded-t-none pt-2">
+        <CardHeader className="text-center px-8 pt-6">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900">
             <GraduationCap className="h-6 w-6 text-white" />
           </div>
           <CardTitle className="text-xl">Корпоративное обучение</CardTitle>
-          <CardDescription>Global ERP</CardDescription>
+          <CardDescription>Платформа обучения · Global ERP</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-8 pb-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -110,6 +112,9 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+      <p className="mt-6 text-center text-xs text-slate-400">
+        &copy; 2026 Global ERP &mdash; Экосистема СТИК
+      </p>
     </div>
   );
 }

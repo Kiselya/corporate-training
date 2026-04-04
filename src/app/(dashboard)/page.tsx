@@ -75,10 +75,13 @@ interface DashboardData {
     totalGroups: number;
     totalEmployees: number;
     totalCourses: number;
+    totalSpecifications: number;
     totalBudget: number;
   };
   financial: {
     revenueByMonth: { month: string; revenue: number }[];
+    revenueByMonthByCompany: Record<string, unknown>[];
+    companyNames: Record<string, string>;
     revenueByCourse: {
       name: string;
       revenue: number;
@@ -166,6 +169,20 @@ const PIE_COLORS = [
   "#F97316",
 ];
 
+// Уникальные цвета для компаний (без дублей)
+const COMPANY_COLORS = [
+  "#3B82F6", // синий
+  "#EF4444", // красный
+  "#10B981", // зелёный
+  "#F59E0B", // жёлтый
+  "#8B5CF6", // фиолетовый
+  "#EC4899", // розовый
+  "#14B8A6", // бирюзовый
+  "#F97316", // оранжевый
+  "#6366F1", // индиго
+  "#84CC16", // лайм
+];
+
 type Period = "month" | "quarter" | "year" | "all";
 
 function filterByPeriod(
@@ -211,15 +228,20 @@ function KpiCard({
   icon: Icon,
   color,
   subtitle,
+  borderColor,
 }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
   color: string;
   subtitle?: string;
+  borderColor?: string;
 }) {
   return (
-    <Card>
+    <Card
+      className="card-hover"
+      style={borderColor ? { borderTop: `3px solid ${borderColor}` } : undefined}
+    >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-slate-500">
           {title}
@@ -399,24 +421,40 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("all");
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set());
+  const [companySearch, setCompanySearch] = useState("");
+
+  const toggleCompany = (id: string) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const isAdmin = isAdminOrAbove(authUser?.role);
 
   useEffect(() => {
-    // USER роль не нуждается в загрузке admin-дашборда
     if (authUser && !isAdminOrAbove(authUser.role)) {
       setLoading(false);
       return;
     }
-    fetch("/api/dashboard")
-      .then((res) => {
+    const query = selectedCompanyIds.size > 0 ? `?companyIds=${[...selectedCompanyIds].join(",")}` : "";
+    Promise.all([
+      fetch(`/api/dashboard${query}`).then((res) => {
         if (!res.ok) throw new Error("Ошибка загрузки");
         return res.json();
+      }),
+      companies.length === 0 ? fetch("/api/companies").then((r) => r.json()) : Promise.resolve(null),
+    ])
+      .then(([dashData, compsData]) => {
+        setData(dashData);
+        if (compsData) setCompanies(compsData.map((c: any) => ({ id: c.id, name: c.name })));
       })
-      .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [authUser]);
+  }, [authUser, selectedCompanyIds]);
 
   if (loading) {
     return (
@@ -469,7 +507,7 @@ export default function DashboardPage() {
         {/* Аналитический контент без табов */}
         <div className="space-y-6">
           {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-stagger">
             <KpiCard
               title="Средний прогресс"
               value={
@@ -484,12 +522,14 @@ export default function DashboardPage() {
               }
               icon={Target}
               color="text-green-600"
+              borderColor="#10B981"
             />
             <KpiCard
               title="Процент завершения"
               value={data.analytical.completionRate + "%"}
               icon={CheckCircle2}
               color="text-green-600"
+              borderColor="#10B981"
               subtitle={`${data.summary.totalGroups} групп всего`}
             />
             <KpiCard
@@ -497,6 +537,7 @@ export default function DashboardPage() {
               value={data.analytical.avgGroupSize + " чел."}
               icon={Users}
               color="text-green-600"
+              borderColor="#10B981"
             />
           </div>
 
@@ -640,6 +681,50 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-slate-500">
             Обзор системы корпоративного обучения
           </p>
+          {/* Фильтр по компании */}
+          {companies.length > 0 && (<>
+            <div className="flex items-center gap-2 flex-wrap mt-2 print:hidden">
+              <span className="text-xs text-slate-500">Компания:</span>
+              <input
+                type="text"
+                placeholder="Поиск..."
+                value={companySearch}
+                onChange={(e) => setCompanySearch(e.target.value)}
+                className="h-6 px-2 text-xs border rounded-md w-36"
+              />
+              <button
+                onClick={() => setSelectedCompanyIds(new Set())}
+                className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                  selectedCompanyIds.size === 0 ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Все
+              </button>
+              {companies
+                .filter((c) => !companySearch || c.name.toLowerCase().includes(companySearch.toLowerCase()))
+                .map((c, i) => {
+                  const color = COMPANY_COLORS[i % COMPANY_COLORS.length];
+                  const isSelected = selectedCompanyIds.has(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => toggleCompany(c.id)}
+                      className="px-2.5 py-1 text-xs rounded-full transition-colors border"
+                      style={isSelected
+                        ? { backgroundColor: color, color: "#fff", borderColor: color }
+                        : { backgroundColor: "#f1f5f9", color: "#64748b", borderColor: "#e2e8f0" }
+                      }
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+            </div>
+            {/* Заголовок для печати — показывает выбранную компанию */}
+            <p className="hidden print:block text-sm text-slate-600 mt-1">
+              Компания: {selectedCompanyIds.size > 0 ? companies.filter((c) => selectedCompanyIds.has(c.id)).map((c) => c.name).join(", ") : "Все компании"}
+            </p>
+          </>)}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -705,7 +790,7 @@ export default function DashboardPage() {
           </div>
 
           {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-stagger">
             <KpiCard
               title="Общий оборот"
               value={formatRubles(
@@ -713,6 +798,7 @@ export default function DashboardPage() {
               )}
               icon={Banknote}
               color="text-blue-600"
+              borderColor="#3B82F6"
               subtitle={
                 period !== "all"
                   ? `За выбранный период`
@@ -724,12 +810,14 @@ export default function DashboardPage() {
               value={formatRubles(data.financial.avgCostPerEmployee)}
               icon={Users}
               color="text-blue-600"
+              borderColor="#8B5CF6"
             />
             <KpiCard
               title="Количество спецификаций"
-              value={data.summary.totalGroups}
+              value={data.summary.totalSpecifications}
               icon={Target}
               color="text-blue-600"
+              borderColor="#F59E0B"
             />
           </div>
 
@@ -743,38 +831,51 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={filteredRevenue}
-                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#F1F5F9"
-                    />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 12 }}
-                    />
-                    <YAxis
-                      tickFormatter={formatRublesShort}
-                      tick={{ fontSize: 12 }}
-                    />
-                    <Tooltip
-                      formatter={(value: any) => [
-                        formatRubles(Number(value)),
-                        "Оборот",
-                      ]}
-                      contentStyle={{
-                        borderRadius: 8,
-                        border: "1px solid #E2E8F0",
-                      }}
-                    />
-                    <Bar
-                      dataKey="revenue"
-                      fill="#3B82F6"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
+                  {data.financial.revenueByMonthByCompany.length > 0 && Object.keys(data.financial.companyNames).length > 0 ? (
+                    <BarChart
+                      data={data.financial.revenueByMonthByCompany}
+                      margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <YAxis tickFormatter={formatRublesShort} tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(value: any, name: any) => [formatRubles(Number(value)), name]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #E2E8F0" }}
+                      />
+                      <Legend />
+                      {(() => {
+                        // Показываем только выбранные компании (или все если ничего не выбрано)
+                        const selectedNames = selectedCompanyIds.size > 0
+                          ? companies.filter((c) => selectedCompanyIds.has(c.id)).map((c) => c.name)
+                          : Object.values(data.financial.companyNames);
+                        const visibleNames = (Object.values(data.financial.companyNames) as string[]).filter((n) => selectedNames.includes(n));
+                        return visibleNames.map((name, i) => (
+                          <Bar
+                            key={name}
+                            dataKey={name}
+                            stackId="revenue"
+                            fill={COMPANY_COLORS[companies.findIndex((c) => c.name === name) % COMPANY_COLORS.length] || COMPANY_COLORS[i % COMPANY_COLORS.length]}
+                            radius={i === visibleNames.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                          />
+                        ));
+                      })()}
+                    </BarChart>
+                  ) : (
+                    <BarChart
+                      data={filteredRevenue}
+                      margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <YAxis tickFormatter={formatRublesShort} tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(value: any) => [formatRubles(Number(value)), "Оборот"]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #E2E8F0" }}
+                      />
+                      <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  )}
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -895,7 +996,7 @@ export default function DashboardPage() {
         {/* ═══════════════════════════════════════════════════════ */}
         <TabsContent value="analytical" className="space-y-6 mt-4">
           {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-stagger">
             <KpiCard
               title="Средний прогресс"
               value={
@@ -910,12 +1011,14 @@ export default function DashboardPage() {
               }
               icon={Target}
               color="text-green-600"
+              borderColor="#10B981"
             />
             <KpiCard
               title="Процент завершения"
               value={data.analytical.completionRate + "%"}
               icon={CheckCircle2}
               color="text-green-600"
+              borderColor="#10B981"
               subtitle={`${data.summary.totalGroups} групп всего`}
             />
             <KpiCard
@@ -923,6 +1026,7 @@ export default function DashboardPage() {
               value={data.analytical.avgGroupSize + " чел."}
               icon={Users}
               color="text-green-600"
+              borderColor="#10B981"
             />
           </div>
 
@@ -1082,18 +1186,20 @@ export default function DashboardPage() {
           )}
 
           {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-stagger">
             <KpiCard
               title="Группы в работе"
               value={data.operational.groupsByStatus.IN_PROGRESS || 0}
               icon={Clock}
               color="text-purple-600"
+              borderColor="#8B5CF6"
             />
             <KpiCard
               title="Запланировано"
               value={data.operational.groupsByStatus.PLANNED || 0}
               icon={Target}
               color="text-purple-600"
+              borderColor="#8B5CF6"
             />
             <KpiCard
               title="Конфликтов"
@@ -1104,6 +1210,7 @@ export default function DashboardPage() {
                   ? "text-red-500"
                   : "text-purple-600"
               }
+              borderColor={data.operational.conflictsCount > 0 ? "#EF4444" : "#8B5CF6"}
             />
           </div>
 
@@ -1204,7 +1311,7 @@ export default function DashboardPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push("/groups")}
+                onClick={() => window.location.href = "/groups"}
                 className="print-hidden"
               >
                 Все группы <ArrowRight className="ml-1 h-4 w-4" />
@@ -1231,7 +1338,7 @@ export default function DashboardPage() {
                       <TableRow
                         key={group.id}
                         className="cursor-pointer hover:bg-slate-50"
-                        onClick={() => router.push(`/groups/${group.id}`)}
+                        onClick={() => window.location.href = `/groups/${group.id}`}
                       >
                         <TableCell className="font-medium text-sm">
                           {group.name || "—"}

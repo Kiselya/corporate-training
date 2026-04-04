@@ -60,8 +60,9 @@ export async function GET(
     // Вычисляемые поля (бизнес-логика расчёта стоимости и прогресса)
     const memberCount = group.members.length;
 
-    // Стоимость группы: зафиксированная цена * количество участников
-    const totalCost = group.pricePerPerson * memberCount;
+    // Стоимость группы с учётом скидки
+    const discount = group.discountPercent ?? 0;
+    const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
 
     // Средний прогресс: среднее арифметическое progressPercent всех участников
     const avgProgress =

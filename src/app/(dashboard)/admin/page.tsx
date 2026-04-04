@@ -76,7 +76,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminOrAbove(user.role))) {
-      router.push("/");
+      window.location.href = "/";
     }
   }, [user, authLoading, router]);
 
@@ -351,7 +351,7 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
         body: JSON.stringify({ userId }),
       });
       if (res.ok) {
-        router.push("/");
+        window.location.href = "/";
         // Force full page reload to re-fetch auth context
         window.location.href = "/";
       } else {
@@ -371,10 +371,104 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
 
   const canChangeRoles = isSuperAdmin(currentUser.role as any);
 
+  // Создание пользователя из сотрудника
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [employees, setEmployees] = useState<{ id: string; fullName: string; email: string | null; companyId: string | null }[]>([]);
+  const [selectedEmpId, setSelectedEmpId] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("admin123");
+  const [newUserRole, setNewUserRole] = useState<string>("USER");
+  const [creatingSaving, setCreatingSaving] = useState(false);
+  const [empSearch, setEmpSearch] = useState("");
+
+  async function openCreateUser() {
+    setCreateUserOpen(true);
+    setSelectedEmpId("");
+    setNewUserEmail("");
+    setNewUserPassword("admin123");
+    setNewUserRole("USER");
+    setEmpSearch("");
+    const res = await fetch("/api/employees");
+    if (res.ok) {
+      const data = await res.json();
+      // Исключаем сотрудников, у которых уже есть аккаунт
+      const userEmployeeIds = new Set(users.filter(u => (u as any).employeeId).map(u => (u as any).employeeId));
+      setEmployees(data.filter((e: any) => !userEmployeeIds.has(e.id)));
+    }
+  }
+
+  function onSelectEmployee(empId: string) {
+    setSelectedEmpId(empId);
+    const emp = employees.find(e => e.id === empId);
+    if (emp?.email) setNewUserEmail(emp.email);
+  }
+
+  async function handleCreateUser() {
+    if (!newUserEmail.trim() || !newUserPassword.trim()) return;
+    setCreatingSaving(true);
+    try {
+      const res = await fetch("/api/auth/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newUserEmail,
+          password: newUserPassword,
+          name: employees.find(e => e.id === selectedEmpId)?.fullName || newUserEmail.split("@")[0],
+          role: newUserRole,
+          employeeId: selectedEmpId || undefined,
+          companyId: employees.find(e => e.id === selectedEmpId)?.companyId || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "Ошибка создания пользователя");
+        return;
+      }
+      setCreateUserOpen(false);
+      await fetchUsers();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreatingSaving(false);
+    }
+  }
+
+  // Поиск и сортировка
+  const [search, setSearch] = useState("");
+  const ROLE_ORDER: Record<string, number> = { SUPER_ADMIN: 0, ADMIN: 1, USER: 2 };
+
+  const filteredUsers = users
+    .filter((u) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (u.name || "").toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || "").toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9));
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Пользователи ({users.length})</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>Пользователи ({filteredUsers.length})</CardTitle>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Поиск по имени, email, роли..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-72 h-8 text-sm"
+            />
+            {canChangeRoles && (
+              <Button size="sm" onClick={openCreateUser}>
+                <Plus className="h-4 w-4 mr-1" />
+                Создать пользователя
+              </Button>
+            )}
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {loading ? (
@@ -395,7 +489,7 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => {
+              {filteredUsers.map((u) => {
                 const isMe = u.id === currentUser.id;
                 return (
                   <TableRow key={u.id} className={!u.isActive ? "opacity-50" : ""}>
@@ -419,20 +513,16 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
                     </TableCell>
                     <TableCell>
                       {canChangeRoles && !isMe ? (
-                        <Select
+                        <select
                           value={u.role}
-                          onValueChange={(val) => val && changeRole(u.id, val)}
+                          onChange={(e) => changeRole(u.id, e.target.value)}
                           disabled={updatingId === u.id}
+                          className="h-8 px-2 text-xs border rounded-md bg-white"
                         >
-                          <SelectTrigger className="w-40 h-8 text-xs">
-                            <SelectValue>{ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || u.role}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="SUPER_ADMIN">Суперадмин</SelectItem>
-                            <SelectItem value="ADMIN">Администратор</SelectItem>
-                            <SelectItem value="USER">Пользователь</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <option value="SUPER_ADMIN">Суперадмин</option>
+                          <option value="ADMIN">Администратор</option>
+                          <option value="USER">Пользователь</option>
+                        </select>
                       ) : (
                         <RoleBadge role={u.role} />
                       )}
@@ -500,6 +590,88 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
           </Table>
         )}
       </CardContent>
+
+      {/* Диалог создания пользователя из сотрудника */}
+      <Dialog open={createUserOpen} onOpenChange={setCreateUserOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Создать пользователя</DialogTitle>
+            <DialogDescription>
+              Выберите сотрудника и назначьте ему роль в системе.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Сотрудник</Label>
+              <Input
+                placeholder="Поиск сотрудника..."
+                value={empSearch}
+                onChange={(e) => setEmpSearch(e.target.value)}
+                className="mb-2"
+              />
+              <div className="max-h-40 overflow-y-auto border rounded-md">
+                {employees
+                  .filter((e) => !empSearch || e.fullName.toLowerCase().includes(empSearch.toLowerCase()))
+                  .map((emp) => (
+                    <button
+                      key={emp.id}
+                      onClick={() => onSelectEmployee(emp.id)}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-0 ${
+                        selectedEmpId === emp.id ? "bg-blue-50 text-blue-700 font-medium" : ""
+                      }`}
+                    >
+                      {emp.fullName}
+                      {emp.email && <span className="ml-2 text-xs text-muted-foreground">{emp.email}</span>}
+                    </button>
+                  ))}
+                {employees.filter((e) => !empSearch || e.fullName.toLowerCase().includes(empSearch.toLowerCase())).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-3">Нет доступных сотрудников</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Email (для входа)</Label>
+              <Input
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                placeholder="user@company.ru"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Пароль</Label>
+              <Input
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+                placeholder="Временный пароль"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Роль</Label>
+              <Select value={newUserRole} onValueChange={(val) => val && setNewUserRole(val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите роль" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USER">Пользователь</SelectItem>
+                  <SelectItem value="ADMIN">Администратор</SelectItem>
+                  {isSuperAdmin(currentUser.role as any) && (
+                    <SelectItem value="SUPER_ADMIN">Суперадмин</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateUserOpen(false)}>Отмена</Button>
+            <Button
+              onClick={handleCreateUser}
+              disabled={creatingSaving || !newUserEmail.trim() || !newUserPassword.trim()}
+            >
+              {creatingSaving ? "Создание..." : "Создать"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -658,16 +830,15 @@ function InvitesTab() {
                 <Label>Роль</Label>
                 {/* ADMIN может создавать инвайты только с ролью USER */}
                 {isSuperAdminUser ? (
-                  <Select value={newRole} onValueChange={(val) => setNewRole(val as "SUPER_ADMIN" | "ADMIN" | "USER")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USER">Пользователь</SelectItem>
-                      <SelectItem value="ADMIN">Администратор</SelectItem>
-                      <SelectItem value="SUPER_ADMIN">Суперадмин</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value as "SUPER_ADMIN" | "ADMIN" | "USER")}
+                    className="w-full h-10 px-3 border rounded-md text-sm bg-white"
+                  >
+                    <option value="USER">Пользователь</option>
+                    <option value="ADMIN">Администратор</option>
+                    <option value="SUPER_ADMIN">Суперадмин</option>
+                  </select>
                 ) : (
                   <div className="flex items-center h-10 px-3 rounded-md border bg-slate-50 text-sm text-slate-700">
                     Пользователь

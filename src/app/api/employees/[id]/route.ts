@@ -9,22 +9,28 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const employee = await prisma.employee.findUnique({
-      where: { id },
-      include: {
-        company: true,
-        groupMembers: {
-          include: {
-            group: {
-              include: {
-                course: true,
-                _count: { select: { members: true } },
-              },
+    const include = {
+      company: true,
+      groupMembers: {
+        include: {
+          group: {
+            include: {
+              course: true,
+              _count: { select: { members: true } },
             },
           },
         },
       },
-    });
+    };
+
+    // Поддержка поиска по id, code или erpId для коротких URL
+    let employee = await prisma.employee.findUnique({ where: { id }, include });
+    if (!employee) {
+      employee = await prisma.employee.findFirst({
+        where: { OR: [{ code: id }, { erpId: isNaN(Number(id)) ? undefined : Number(id) }] },
+        include,
+      });
+    }
 
     if (!employee) {
       return NextResponse.json(

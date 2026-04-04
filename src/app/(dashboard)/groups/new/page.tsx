@@ -51,6 +51,7 @@ function formatRubles(v: number) {
  * Пропускает субботы и воскресенья
  */
 function addBusinessDays(startDate: Date, days: number): Date {
+  if (days <= 1) return new Date(startDate);
   const result = new Date(startDate);
   let added = 0;
   while (added < days - 1) {
@@ -174,9 +175,15 @@ export default function NewGroupPage() {
         }),
       });
       const data = await res.json();
-      router.push(`/groups/${data.id}`);
+      if (!res.ok) {
+        alert(data.error || "Ошибка при создании группы");
+        return;
+      }
+      window.location.href = `/groups/${data.id}`;
     } catch (e) {
       console.error(e);
+      alert("Ошибка сети");
+    } finally {
       setSaving(false);
     }
   };
@@ -184,7 +191,7 @@ export default function NewGroupPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push("/groups")}>
+        <Button variant="ghost" size="sm" onClick={() => window.location.href = "/groups"}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Назад
         </Button>
         <h1 className="text-2xl font-bold text-slate-800">Создание учебной группы</h1>

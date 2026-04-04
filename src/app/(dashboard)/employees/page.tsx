@@ -43,6 +43,7 @@ interface Company {
 
 interface Employee {
   id: string;
+  code: string | null;
   lastName: string;
   firstName: string;
   middleName: string | null;
@@ -177,11 +178,22 @@ export default function EmployeesPage() {
           body: JSON.stringify(payload),
         });
       } else {
-        await fetch("/api/employees", {
+        const res = await fetch("/api/employees", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        if (res.status === 409) {
+          const data = await res.json();
+          const proceed = confirm(`⚠️ ${data.warning}\n\nСоздать ещё одного сотрудника с таким же ФИО?`);
+          if (!proceed) { setSaving(false); return; }
+          // Повторный запрос с флагом force
+          await fetch("/api/employees", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, force: true }),
+          });
+        }
       }
       setDialogOpen(false);
       await fetchData();
@@ -331,7 +343,7 @@ export default function EmployeesPage() {
                 {filteredEmployees.map((emp) => (
                   <TableRow key={emp.id}>
                     <TableCell>
-                      <a href={`/employees/${emp.id}`} className="font-medium text-blue-600 hover:underline">
+                      <a href={`/employees/${emp.code || emp.id}`} className="font-medium text-blue-600 hover:underline">
                         {emp.fullName}
                       </a>
                     </TableCell>

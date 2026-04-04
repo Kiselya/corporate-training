@@ -72,7 +72,7 @@ export default function IntegrationLogPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminOrAbove(user.role))) {
-      router.push("/");
+      window.location.href = "/";
     }
   }, [user, authLoading, router]);
 

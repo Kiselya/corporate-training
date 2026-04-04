@@ -376,7 +376,10 @@ export default function CompaniesPage() {
                 {filteredCompanies.map((company) => (
                   <TableRow key={company.id}>
                     <TableCell className="font-mono text-sm">{company.code}</TableCell>
-                    <TableCell className="font-medium">{company.name}</TableCell>
+                    <TableCell
+                      className="font-medium text-blue-600 cursor-pointer hover:underline"
+                      onClick={() => window.location.href = `/companies/${company.id}`}
+                    >{company.name}</TableCell>
                     <TableCell className="text-sm text-slate-600">
                       {company.inn || "—"}
                     </TableCell>

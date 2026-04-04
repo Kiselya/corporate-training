@@ -39,6 +39,7 @@ model Company {
   employees      Employee[]
   specifications Specification[]
   users          User[]
+  courses        CompanyCourse[]
 }
 
 // ─── 2.2.1 Участник обучения ─────────────────────────────────
@@ -78,6 +79,45 @@ model Course {
 
   trainingGroups TrainingGroup[]
   priceHistory   PriceHistory[]
+  modules        CourseModule[]
+  companies      CompanyCourse[]
+}
+
+// ─── Доступные курсы компании (many-to-many) ────────────────
+// Какие курсы открыты для компании
+model CompanyCourse {
+  id        String   @id @default(cuid())
+  companyId String
+  courseId   String
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, courseId])
+}
+
+// ─── Модуль курса ───────────────────────────────────────────
+// Этап внутри курса: лекция, практика, тест, задание
+enum ModuleType {
+  LECTURE    // Лекция
+  PRACTICE   // Практика
+  TEST       // Тест
+  ASSIGNMENT // Задание
+}
+
+model CourseModule {
+  id          String     @id @default(cuid())
+  courseId    String
+  title       String     // Название модуля
+  type        ModuleType @default(LECTURE)
+  durationHours Float   @default(1) // Длительность в часах
+  orderIndex  Int        @default(0) // Порядок в курсе
+  description String?    // Описание модуля
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 }
 
 // Бонус: история цен (времязависимость прайса)

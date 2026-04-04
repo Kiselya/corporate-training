@@ -47,7 +47,8 @@ export async function GET(request: Request) {
     // Формируем данные отчёта
     const reportData = groups.map((group) => {
       const memberCount = group.members.length;
-      const totalCost = group.pricePerPerson * memberCount;
+      const discount = group.discountPercent ?? 0;
+      const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
       const avgProgress =
         memberCount > 0
           ? Math.round(group.members.reduce((sum, m) => sum + m.progressPercent, 0) / memberCount)
@@ -79,10 +80,12 @@ export async function GET(request: Request) {
     // Итоги
     const totalBudget = reportData.reduce((sum, g) => sum + g.totalCost, 0);
     const totalMembers = reportData.reduce((sum, g) => sum + g.memberCount, 0);
+    // Средний прогресс по всем участникам (не среднее средних)
+    const totalProgressSum = reportData.reduce(
+      (sum, g) => sum + g.members.reduce((s, m) => s + m.progress, 0), 0
+    );
     const avgProgressAll =
-      reportData.length > 0
-        ? Math.round(reportData.reduce((sum, g) => sum + g.avgProgress, 0) / reportData.length)
-        : 0;
+      totalMembers > 0 ? Math.round(totalProgressSum / totalMembers) : 0;
 
     const report = {
       generatedAt: new Date().toISOString(),

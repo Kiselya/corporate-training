@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
         <AuthProvider>
           <TooltipProvider>
             {children}

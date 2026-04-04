@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 // GET /api/companies/[id] — Получить компанию по ID с сотрудниками и спецификациями
 export async function GET(
@@ -12,8 +13,30 @@ export async function GET(
     const company = await prisma.company.findUnique({
       where: { id },
       include: {
-        employees: true,
-        specifications: true,
+        employees: {
+          include: {
+            groupMembers: {
+              include: {
+                group: {
+                  include: {
+                    course: true,
+                    _count: { select: { members: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        specifications: {
+          include: {
+            trainingGroups: {
+              include: { course: true, members: true },
+            },
+          },
+        },
+        courses: {
+          include: { course: true },
+        },
         _count: {
           select: { employees: true, specifications: true },
         },
@@ -93,5 +116,47 @@ export async function DELETE(
       { error: "Не удалось удалить компанию" },
       { status: 500 }
     );
+  }
+}
+
+// PATCH /api/companies/[id] — Назначить/удалить курсы компании
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN")) {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const { addCourseIds, removeCourseIds } = await request.json();
+
+    if (addCourseIds && Array.isArray(addCourseIds)) {
+      for (const courseId of addCourseIds) {
+        await prisma.companyCourse.upsert({
+          where: { companyId_courseId: { companyId: id, courseId } },
+          update: {},
+          create: { companyId: id, courseId },
+        });
+      }
+    }
+
+    if (removeCourseIds && Array.isArray(removeCourseIds)) {
+      await prisma.companyCourse.deleteMany({
+        where: { companyId: id, courseId: { in: removeCourseIds } },
+      });
+    }
+
+    const updated = await prisma.companyCourse.findMany({
+      where: { companyId: id },
+      include: { course: true },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Ошибка назначения курсов:", error);
+    return NextResponse.json({ error: `Ошибка: ${error instanceof Error ? error.message : String(error)}` }, { status: 500 });
   }
 }

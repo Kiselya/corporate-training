@@ -26,6 +26,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/corporate_training?schema=public
       NEXTAUTH_SECRET: hackathon-global-erp-2026-secret
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
     depends_on:
       db:
         condition: service_healthy

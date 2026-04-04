@@ -61,30 +61,26 @@ export async function middleware(request: NextRequest) {
     // Верификация JWT (jose совместима с Edge Runtime)
     const { payload } = await jwtVerify(token, SECRET);
 
-    // Проверка обязательной смены пароля
-    if (payload.mustChangePassword === true) {
-      const isAllowed = CHANGE_PASSWORD_ALLOWED.some((path) =>
-        pathname.startsWith(path)
-      );
-
-      if (!isAllowed) {
-        // Для API-маршрутов — ошибка
-        if (pathname.startsWith("/api/")) {
-          return NextResponse.json(
-            { error: "Необходимо сменить пароль" },
-            { status: 403 }
-          );
-        }
-        // Для страниц — редирект на смену пароля
-        const changePasswordUrl = new URL("/change-password", request.url);
-        return NextResponse.redirect(changePasswordUrl);
-      }
-    }
+    // Принудительная смена пароля отключена для демо хакатона
+    // (функционал сохранён — для включения раскомментировать блок ниже)
+    // if (payload.mustChangePassword === true) {
+    //   const isAllowed = CHANGE_PASSWORD_ALLOWED.some((path) =>
+    //     pathname.startsWith(path)
+    //   );
+    //   if (!isAllowed) {
+    //     if (pathname.startsWith("/api/")) {
+    //       return NextResponse.json({ error: "Необходимо сменить пароль" }, { status: 403 });
+    //     }
+    //     return NextResponse.redirect(new URL("/change-password", request.url));
+    //   }
+    // }
 
     // Запрещаем bfcache для HTML-страниц — решает проблему сломанного state при кнопке "Назад"
     const response = NextResponse.next();
     if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next")) {
-      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
     }
     return response;
   } catch {

@@ -10,6 +10,9 @@ export async function GET() {
         _count: {
           select: { trainingGroups: true },
         },
+        modules: {
+          orderBy: { orderIndex: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
     });

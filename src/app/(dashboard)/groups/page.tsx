@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
-import { Plus, Users, Calendar, Search, ArrowUpDown, SlidersHorizontal } from "lucide-react";
+import { Plus, Users, Calendar, Search, ArrowUpDown, SlidersHorizontal, Inbox } from "lucide-react";
 import { pluralizeDays } from "@/lib/types";
 
 function formatRubles(value: number): string {
@@ -202,7 +202,7 @@ export default function GroupsPage() {
             {groups.length > 0 ? `Всего ${groups.length} групп` : "Управление учебными группами"}
           </p>
         </div>
-        <Button onClick={() => router.push("/groups/new")}>
+        <Button onClick={() => window.location.href = "/groups/new"}>
           <Plus className="mr-1.5 h-4 w-4" />
           Создать группу
         </Button>
@@ -212,7 +212,7 @@ export default function GroupsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-slate-500">Учебные группы не найдены</p>
-            <Button variant="outline" className="mt-4" onClick={() => router.push("/groups/new")}>
+            <Button variant="outline" className="mt-4" onClick={() => window.location.href = "/groups/new"}>
               <Plus className="mr-1.5 h-4 w-4" /> Создать первую группу
             </Button>
           </CardContent>
@@ -325,19 +325,33 @@ export default function GroupsPage() {
           {/* Карточки групп */}
           {filteredGroups.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-slate-500">
-                Ничего не найдено. Попробуйте изменить фильтры.
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 mb-4">
+                  <Search className="h-8 w-8 text-slate-400" />
+                </div>
+                <p className="text-lg font-medium text-slate-700">Ничего не найдено</p>
+                <p className="mt-1 text-sm text-slate-500 max-w-sm text-center">
+                  По вашему запросу не найдено учебных групп. Попробуйте изменить параметры поиска или сбросить фильтры.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => { setSearchQuery(""); setStatusFilter("all"); setCourseFilter("all"); }}
+                >
+                  Сбросить фильтры
+                </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 animate-stagger">
               {filteredGroups.map((group) => {
                 const statusCfg = STATUS_CONFIG[group.status] || STATUS_CONFIG.PLANNED;
                 return (
                   <Card
                     key={group.id}
-                    className="cursor-pointer transition-shadow hover:shadow-md"
-                    onClick={() => router.push(`/groups/${group.id}`)}
+                    className="cursor-pointer card-hover"
+                    onClick={() => window.location.href = `/groups/${group.id}`}
                   >
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">

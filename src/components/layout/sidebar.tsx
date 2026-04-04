@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   GraduationCap,
@@ -52,20 +51,23 @@ export function Sidebar() {
   const { user, loading, logout, impersonating, stopImpersonating } = useAuth();
 
   return (
-    <aside className="flex h-full w-[260px] shrink-0 flex-col bg-slate-900 text-white">
+    <aside className="flex h-full w-[260px] shrink-0 flex-col bg-gradient-to-b from-slate-950 to-slate-900 text-white">
       {/* Logo */}
-      <div className="flex items-center gap-3 border-b border-slate-700/50 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/60">
-          <GraduationCap className="h-5 w-5 text-slate-200" />
+      <div className="px-5 pt-5 pb-0">
+        <div className="flex items-center gap-3 pb-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/60">
+            <GraduationCap className="h-5 w-5 text-slate-200" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight tracking-tight text-white">
+              Corporate Training
+            </span>
+            <span className="text-[10px] leading-tight text-slate-400">
+              Платформа обучения · Global ERP
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold leading-tight tracking-tight text-white">
-            Corporate Training
-          </span>
-          <span className="text-[11px] leading-tight text-slate-400">
-            Global ERP
-          </span>
-        </div>
+        <div className="h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full" />
       </div>
 
       {/* Impersonation Banner */}
@@ -90,58 +92,64 @@ export function Sidebar() {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {(isSuperAdmin(user?.role) ? superAdminNavigation : isAdminOrAbove(user?.role) ? adminNavigation : userNavigation).map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+      <nav className="flex-1 space-y-1 px-3 py-4" suppressHydrationWarning>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+          </div>
+        ) : (
+          <>
+            {(isSuperAdmin(user?.role) ? superAdminNavigation : isAdminOrAbove(user?.role) ? adminNavigation : userNavigation).map((item) => {
+              const isActive =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-slate-700/70 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              )}
-            >
-              <item.icon className="h-[18px] w-[18px] shrink-0" />
-              {item.name}
-            </Link>
-          );
-        })}
-
-        {/* Администрирование — для ADMIN и SUPER_ADMIN */}
-        {isAdminOrAbove(user?.role) && (
-          <Link
-            href="/admin"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              pathname === "/admin"
-                ? "bg-slate-700/70 text-white"
-                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                    isActive
+                      ? "bg-slate-700/70 text-white border-l-2 border-blue-400"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white hover:scale-[1.02] border-l-2 border-transparent"
+                  )}
+                >
+                  <item.icon className="h-[18px] w-[18px] shrink-0" />
+                  {item.name}
+                </a>
+              );
+            })}
+            {isAdminOrAbove(user?.role) && (
+              <a
+                href="/admin"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  pathname === "/admin"
+                    ? "bg-slate-700/70 text-white border-l-2 border-blue-400"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white hover:scale-[1.02] border-l-2 border-transparent"
+                )}
+              >
+                <Shield className="h-[18px] w-[18px] shrink-0" />
+                Администрирование
+              </a>
             )}
-          >
-            <Shield className="h-[18px] w-[18px] shrink-0" />
-            Администрирование
-          </Link>
-        )}
-        {isSuperAdmin(user?.role) && (
-          <Link
-            href="/admin/integration-log"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              pathname.startsWith("/admin/integration-log")
-                ? "bg-slate-700/70 text-white"
-                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+            {isSuperAdmin(user?.role) && (
+              <a
+                href="/admin/integration-log"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  pathname.startsWith("/admin/integration-log")
+                    ? "bg-slate-700/70 text-white border-l-2 border-blue-400"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white hover:scale-[1.02] border-l-2 border-transparent"
+                )}
+              >
+                <FileInput className="h-[18px] w-[18px] shrink-0" />
+                Лог интеграции
+              </a>
             )}
-          >
-            <FileInput className="h-[18px] w-[18px] shrink-0" />
-            Лог интеграции
-          </Link>
+          </>
         )}
       </nav>
 

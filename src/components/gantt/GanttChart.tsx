@@ -239,10 +239,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
    * Обработка наведения мыши — показ тултипа
    */
   const handleMouseMove = useCallback((e: React.MouseEvent, groupId: string) => {
-    const rect = (e.currentTarget as Element).closest('.gantt-scroll-area')?.getBoundingClientRect();
-    if (rect) {
-      setTooltipPos({ x: e.clientX - rect.left + 10, y: e.clientY - rect.top - 10 });
-    }
+    setTooltipPos({ x: e.clientX + 12, y: e.clientY - 10 });
     setHoveredGroup(groupId);
   }, []);
 
@@ -256,7 +253,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
   return (
     <div className="flex flex-col h-full">
       {/* ─── Панель масштаба ─────────────────────────────── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b bg-white">
+      <div className="flex items-center gap-2 px-4 py-3 border-b bg-white print:hidden">
         <span className="text-sm font-medium text-slate-600 mr-2">Масштаб:</span>
         {(["week", "month", "quarter"] as ScaleMode[]).map((s) => (
           <button
@@ -271,6 +268,13 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
             {s === "week" ? "Неделя" : s === "month" ? "Месяц" : "Квартал"}
           </button>
         ))}
+        <button
+          onClick={() => window.print()}
+          className="px-3 py-1.5 text-sm rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors print:hidden"
+          title="Печать / экспорт в PDF"
+        >
+          🖨 Печать
+        </button>
         <div className="ml-auto flex items-center gap-4 text-xs text-slate-500">
           {Object.entries(STATUS_COLORS).map(([key, val]) => (
             <div key={key} className="flex items-center gap-1.5">
@@ -282,7 +286,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
       </div>
 
       {/* ─── Основная область диаграммы ──────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-auto">
         {/* Левая панель — список групп */}
         <div className="flex-shrink-0 border-r bg-white" style={{ width: LEFT_PANEL_WIDTH }}>
           <div className="h-[60px] flex items-center px-4 border-b bg-slate-50">
@@ -293,7 +297,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
               key={group.id}
               className={`flex items-center px-4 border-b transition-colors ${readOnly ? "" : "cursor-pointer hover:bg-blue-50"}`}
               style={{ height: ROW_HEIGHT }}
-              onClick={() => !readOnly && router.push(`/groups/${group.id}`)}
+              onClick={() => { if (!readOnly) window.location.href = `/groups/${group.id}`; }}
             >
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-slate-800 truncate">
@@ -351,7 +355,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
                   <g
                     key={group.id}
                     className={readOnly ? "" : "cursor-pointer"}
-                    onClick={() => !readOnly && router.push(`/groups/${group.id}`)}
+                    onClick={() => { if (!readOnly) window.location.href = `/groups/${group.id}`; }}
                     onMouseMove={(e) => handleMouseMove(e, group.id)}
                     onMouseLeave={handleMouseLeave}
                   >
@@ -379,18 +383,6 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
                       />
                     )}
                     {/* Текст на полосе */}
-                    {barWidth > 80 && (
-                      <text
-                        x={startX + barWidth / 2}
-                        y={barY + barHeight / 2 + 4}
-                        textAnchor="middle"
-                        fontSize={11}
-                        fontWeight={500}
-                        fill={group.avgProgress > 50 ? "#FFFFFF" : colors.text}
-                      >
-                        {group.name || group.courseName}
-                      </text>
-                    )}
                   </g>
                 );
               })}
@@ -402,7 +394,7 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
                     x1={todayX + dayWidth / 2}
                     y1={-HEADER_HEIGHT}
                     x2={todayX + dayWidth / 2}
-                    y2={svgHeight}
+                    y2={groups.length * ROW_HEIGHT}
                     stroke="#EF4444"
                     strokeWidth={2}
                     strokeDasharray="6 3"
@@ -423,14 +415,13 @@ export default function GanttChart({ groups: rawGroups, readOnly = false }: { gr
             </g>
           </svg>
 
-          {/* Тултип при наведении — без стоимости, с умным позиционированием */}
+          {/* Тултип при наведении — fixed позиционирование, не обрезается */}
           {hoveredGroup && tooltipPos && hoveredGroupData && (
             <div
-              className="absolute z-50 bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 pointer-events-none min-w-[240px]"
+              className="fixed z-[9999] bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 pointer-events-none min-w-[240px]"
               style={{
-                left: Math.min(tooltipPos.x, (scrollRef.current?.clientWidth || 600) - 260),
-                top: tooltipPos.y < 150 ? tooltipPos.y + 20 : tooltipPos.y,
-                transform: tooltipPos.y < 150 ? "none" : "translateY(-100%)",
+                left: Math.min(tooltipPos.x, window.innerWidth - 270),
+                top: tooltipPos.y > window.innerHeight - 200 ? tooltipPos.y - 160 : tooltipPos.y,
               }}
             >
               <div className="font-semibold text-sm text-slate-800 mb-1">

@@ -107,7 +107,8 @@ export async function GET(
         }
 
         const memberCount = group.members.length;
-        const totalCost = group.pricePerPerson * memberCount;
+        const discount = group.discountPercent ?? 0;
+        const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
         const avgProgress =
           memberCount > 0
             ? Math.round(

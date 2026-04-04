@@ -18,6 +18,23 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   ArrowLeft,
   Building2,
   Mail,
@@ -25,8 +42,10 @@ import {
   Calendar,
   Users,
   TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 import { pluralizeDays } from "@/lib/types";
+import { useAuth, isAdminOrAbove } from "@/lib/auth-context";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PLANNED: { label: "Планируется", className: "bg-slate-100 text-slate-700" },
@@ -70,8 +89,52 @@ interface EmployeeProfile {
 export default function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Назначение прав
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [grantEmail, setGrantEmail] = useState("");
+  const [grantPassword, setGrantPassword] = useState("admin123");
+  const [grantRole, setGrantRole] = useState("ADMIN");
+  const [granting, setGranting] = useState(false);
+  const [hasAccount, setHasAccount] = useState(false);
+
+  async function handleGrantAccess() {
+    if (!grantEmail.trim() || !grantPassword.trim()) return;
+    setGranting(true);
+    try {
+      const res = await fetch("/api/auth/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: grantEmail,
+          password: grantPassword,
+          name: employee?.fullName,
+          role: grantRole,
+          employeeId: id,
+          companyId: employee?.company?.id,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 409) {
+        alert(data.error);
+        return;
+      }
+      if (!res.ok) {
+        alert(data.error || "Ошибка");
+        return;
+      }
+      setGrantOpen(false);
+      setHasAccount(true);
+      alert(`Аккаунт создан: ${grantEmail} / ${grantPassword}\nРоль: ${grantRole === "ADMIN" ? "Администратор" : "Пользователь"}`);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGranting(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
@@ -105,10 +168,10 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push("/employees")}>
+        <Button variant="ghost" size="sm" onClick={() => window.location.href = "/employees"}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Назад
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-slate-800">{employee.fullName}</h1>
           <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
             {employee.company && (
@@ -125,6 +188,19 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
             )}
           </div>
         </div>
+        {isAdminOrAbove(authUser?.role) && !hasAccount && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setGrantEmail(employee.email || "");
+              setGrantOpen(true);
+            }}
+          >
+            <ShieldCheck className="h-4 w-4 mr-1" />
+            Назначить права
+          </Button>
+        )}
       </div>
 
       {/* KPI */}
@@ -181,7 +257,7 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
               <Card
                 key={gm.id}
                 className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => router.push(`/groups/${gm.group.id}`)}
+                onClick={() => window.location.href = `/groups/${gm.group.id}`}
               >
                 <div className="flex">
                   <div
@@ -240,6 +316,45 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
           </div>
         )}
       </div>
+      {/* Диалог назначения прав */}
+      <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Назначить права доступа</DialogTitle>
+            <DialogDescription>
+              Создать аккаунт для {employee.fullName} с доступом в систему.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Email (для входа)</Label>
+              <Input value={grantEmail} onChange={(e) => setGrantEmail(e.target.value)} placeholder="user@company.ru" />
+            </div>
+            <div className="space-y-2">
+              <Label>Временный пароль</Label>
+              <Input value={grantPassword} onChange={(e) => setGrantPassword(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Роль</Label>
+              <Select value={grantRole} onValueChange={(val) => val && setGrantRole(val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите роль" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USER">Пользователь</SelectItem>
+                  <SelectItem value="ADMIN">Администратор</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGrantOpen(false)}>Отмена</Button>
+            <Button onClick={handleGrantAccess} disabled={granting || !grantEmail.trim()}>
+              {granting ? "Создание..." : "Создать аккаунт"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

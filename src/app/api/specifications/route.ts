@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 // GET /api/specifications — Получить список спецификаций с группами и вычисленными итогами
 export async function GET() {
@@ -22,12 +23,15 @@ export async function GET() {
     // - vat: НДС 22% от subtotal (согласно ТЗ хакатона)
     // - total: итоговая сумма с НДС (subtotal + vat)
     const specificationsWithTotals = specifications.map((spec) => {
-      // Расчёт стоимости каждой группы: pricePerPerson * memberCount
-      const groupCosts = spec.trainingGroups.map((group) => ({
-        ...group,
-        memberCount: group.members.length,
-        totalCost: group.pricePerPerson * group.members.length,
-      }));
+      // Расчёт стоимости каждой группы: pricePerPerson * memberCount * (1 - discount/100)
+      const groupCosts = spec.trainingGroups.map((group) => {
+        const discount = group.discountPercent ?? 0;
+        return {
+          ...group,
+          memberCount: group.members.length,
+          totalCost: group.pricePerPerson * group.members.length * (1 - discount / 100),
+        };
+      });
 
       // Подытог: сумма стоимостей всех групп в спецификации
       const subtotal = groupCosts.reduce((sum, g) => sum + g.totalCost, 0);
@@ -60,6 +64,8 @@ export async function GET() {
 // POST /api/specifications — Создать новую спецификацию
 export async function POST(request: Request) {
   try {
+    await requireAdmin();
+
     const body = await request.json();
     const { number, date, companyId, groupIds, status } = body;
 

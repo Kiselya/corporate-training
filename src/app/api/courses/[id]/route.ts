@@ -11,11 +11,15 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const course = await prisma.course.findUnique({
+    // Поддержка поиска по id, code или erpId для коротких URL
+    let course = await prisma.course.findUnique({
       where: { id },
       include: {
         priceHistory: {
           orderBy: { validFrom: "desc" },
+        },
+        modules: {
+          orderBy: { orderIndex: "asc" },
         },
         trainingGroups: {
           include: {
@@ -26,6 +30,18 @@ export async function GET(
         },
       },
     });
+
+    // Fallback: поиск по code или erpId
+    if (!course) {
+      course = await prisma.course.findFirst({
+        where: { OR: [{ code: id }, { erpId: isNaN(Number(id)) ? undefined : Number(id) }] },
+        include: {
+          priceHistory: { orderBy: { validFrom: "desc" } },
+          modules: { orderBy: { orderIndex: "asc" } },
+          trainingGroups: { include: { _count: { select: { members: true } } } },
+        },
+      });
+    }
 
     if (!course) {
       return NextResponse.json(

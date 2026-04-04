@@ -11,9 +11,9 @@ export async function GET() {
   try {
     const adminEmail = "admin@training.local";
 
-    // Проверка — существует ли уже администратор
+    // Проверка — существует ли уже администратор (любого уровня)
     const existingAdmin = await prisma.user.findFirst({
-      where: { role: "ADMIN" },
+      where: { role: { in: ["ADMIN", "SUPER_ADMIN"] } },
     });
 
     if (existingAdmin) {

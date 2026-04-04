@@ -129,6 +129,42 @@
   }
 }
 
+/* Card hover lift effect */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Fade in animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+
+/* Staggered animation for lists */
+.animate-stagger > * {
+  opacity: 0;
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+.animate-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.animate-stagger > *:nth-child(2) { animation-delay: 0.1s; }
+.animate-stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.animate-stagger > *:nth-child(4) { animation-delay: 0.2s; }
+.animate-stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.animate-stagger > *:nth-child(6) { animation-delay: 0.3s; }
+
 /* Стили для печати / экспорта в PDF */
 @media print {
   /* Скрываем sidebar, кнопки, навигацию */
@@ -155,15 +191,57 @@
     background: white !important;
   }
 
-  /* Заголовок отчёта */
-  h1::after {
-    content: " — Отчет";
-    font-size: 0.6em;
-    color: #94A3B8;
-  }
-
   /* Скрываем элементы с классом print-hidden в PDF */
   .print-hidden {
     display: none !important;
   }
+
+  /* Скрываем сайдбар и навигацию при печати */
+  aside, nav, header, [data-sidebar] {
+    display: none !important;
+  }
+
+  /* Контент на всю ширину без отступов */
+  main, body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Принудительная печать фоновых цветов (для полос Ганта) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    overflow: visible !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
+  /* SVG сохраняет свою вычисленную высоту */
+  svg {
+  }
+
+  /* Убираем тени и рамки */
+  .shadow-sm, .shadow-lg, .shadow {
+    box-shadow: none !important;
+  }
+
+  .rounded-lg, .rounded-xl {
+    border-radius: 0 !important;
+  }
+
+  /* Не разрывать карточки между страницами */
+  [data-slot="card"], .recharts-wrapper, Card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
+/* Landscape ориентация для печати */
+@page {
+  size: A4 landscape;
+  margin: 5mm;
+  margin: 10mm;
 }

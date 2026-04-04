@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { erpId, code, lastName, firstName, middleName, fullName, email, phone, note, companyId } = body;
+    const { erpId, code, lastName, firstName, middleName, fullName, email, phone, note, companyId, force } = body;
 
     if (!lastName || !firstName) {
       return NextResponse.json(
@@ -96,6 +96,27 @@ export async function POST(request: Request) {
     const resolvedCompanyId = session.role === "ADMIN" && session.companyId
       ? session.companyId
       : companyId || undefined;
+
+    // Проверка уникальности: ФИО + компания (бонусный функционал по ТЗ 3.1)
+    // При force=true пропускаем — пользователь подтвердил создание дубликата
+    if (!force) {
+      const duplicates = await prisma.employee.findMany({
+        where: {
+          fullName: computedFullName,
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+        },
+        include: { company: true },
+      });
+
+      if (duplicates.length > 0) {
+        const dup = duplicates[0];
+        return NextResponse.json({
+          warning: `Сотрудник "${computedFullName}" уже существует${dup.company ? ` в компании "${dup.company.name}"` : ""}`,
+          existingId: dup.id,
+          duplicateFound: true,
+        }, { status: 409 });
+      }
+    }
 
     const employee = await prisma.employee.create({
       data: {

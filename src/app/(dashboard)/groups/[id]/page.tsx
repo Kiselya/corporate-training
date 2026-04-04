@@ -180,7 +180,7 @@ export default function GroupDetailPage() {
   // Проверка доступа — только ADMIN и SUPER_ADMIN
   useEffect(() => {
     if (authUser && authUser.role === "USER") {
-      router.push("/my-courses");
+      window.location.href = "/my-courses";
     }
   }, [authUser, router]);
 
@@ -310,7 +310,26 @@ export default function GroupDetailPage() {
           companyId: newEmpCompanyId || undefined,
         }),
       });
-      const newEmp = await empRes.json();
+      let newEmp = await empRes.json();
+      if (empRes.status === 409) {
+        const proceed = confirm(`⚠️ ${newEmp.warning}\n\nСоздать ещё одного сотрудника с таким же ФИО?`);
+        if (!proceed) return;
+        const retryRes = await fetch("/api/employees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lastName: newEmpLastName, firstName: newEmpFirstName,
+            middleName: newEmpMiddleName || undefined, fullName,
+            email: newEmpEmail || undefined, companyId: newEmpCompanyId || undefined,
+            force: true,
+          }),
+        });
+        newEmp = await retryRes.json();
+        if (!retryRes.ok) { alert(newEmp.error || "Ошибка создания"); return; }
+      } else if (!empRes.ok) {
+        alert(newEmp.error || "Ошибка создания сотрудника");
+        return;
+      }
 
       // 2. Добавляем в группу
       await fetch(`/api/groups/${groupId}/members`, {
@@ -401,7 +420,7 @@ export default function GroupDetailPage() {
   if (!group) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => router.push("/groups")}>
+        <Button variant="ghost" onClick={() => window.location.href = "/groups"}>
           <ArrowLeft className="mr-1.5 h-4 w-4" />
           Назад к группам
         </Button>
@@ -416,7 +435,7 @@ export default function GroupDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/groups")}>
+        <Button variant="ghost" size="icon" onClick={() => window.location.href = "/groups"}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">

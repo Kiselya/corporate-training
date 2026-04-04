@@ -121,7 +121,7 @@ export default function CoursesPage() {
   }
 
   async function handleSave() {
-    if (!formName.trim() || !formDuration || !formPrice) return;
+    if (!formName.trim() || !formDuration || (showPrice && !formPrice)) return;
     setSaving(true);
     try {
       const payload = {
@@ -279,7 +279,11 @@ export default function CoursesPage() {
                     <TableCell className="font-mono text-sm">
                       {course.code || "---"}
                     </TableCell>
-                    <TableCell className="font-medium">{course.name}</TableCell>
+                    <TableCell>
+                      <a href={`/courses/${course.code || course.id}`} className="font-medium text-blue-600 hover:underline">
+                        {course.name}
+                      </a>
+                    </TableCell>
                     <TableCell className="text-right">
                       {pluralizeDays(course.durationDays)}
                     </TableCell>
@@ -396,7 +400,7 @@ export default function CoursesPage() {
             </DialogClose>
             <Button
               onClick={handleSave}
-              disabled={saving || !formName.trim() || !formDuration || !formPrice}
+              disabled={saving || !formName.trim() || !formDuration || (showPrice && !formPrice)}
             >
               {saving ? "Сохранение..." : "Сохранить"}
             </Button>

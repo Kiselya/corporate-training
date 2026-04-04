@@ -241,6 +241,29 @@ export async function POST(request: Request) {
       },
     });
 
+    // Автосоздание спецификации для ADMIN
+    if (session.role === "ADMIN") {
+      const companyId = session.companyId || (await prisma.user.findUnique({ where: { id: session.id }, select: { companyId: true } }))?.companyId;
+      if (companyId) {
+        // Генерация номера спецификации
+        const lastSpec = await prisma.specification.findFirst({ orderBy: { number: "desc" } });
+        const nextNum = lastSpec
+          ? String(parseInt(lastSpec.number.replace(/\D/g, "") || "0", 10) + 1).padStart(3, "0")
+          : "001";
+        const specNumber = `SPEC-${new Date().getFullYear()}-${nextNum}`;
+
+        await prisma.specification.create({
+          data: {
+            number: specNumber,
+            date: new Date(),
+            companyId,
+            status: "FORMED",
+            trainingGroups: { connect: [{ id: group.id }] },
+          },
+        });
+      }
+    }
+
     return NextResponse.json(group, { status: 201 });
   } catch (error) {
     console.error("Ошибка при создании группы:", error);

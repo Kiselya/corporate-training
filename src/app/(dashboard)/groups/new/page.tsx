@@ -416,9 +416,17 @@ export default function NewGroupPage() {
                   {selectedCourse ? formatRubles(selectedCourse.pricePerPerson) : "0"} × {selectedEmployees.length}
                 </span>
               </div>
+              <div className="flex justify-between text-sm">
+                <span>Итого без НДС</span>
+                <span className="font-semibold">{formatRubles(totalCost)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>НДС 22%</span>
+                <span>{formatRubles(Math.round(totalCost * 0.22))}</span>
+              </div>
               <div className="flex justify-between text-lg font-bold">
-                <span>Итого</span>
-                <span className="text-green-700">{formatRubles(totalCost)}</span>
+                <span>Итого с НДС</span>
+                <span className="text-green-700">{formatRubles(Math.round(totalCost * 1.22))}</span>
               </div>
 
               <Separator />

@@ -1,13 +1,256 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Prisma Schema — Корпоративное обучение (Global ERP Hackathon)
+// Модель данных: 6 сущностей согласно ТЗ
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 2.2.6 Компания ─────────────────────────────────────────
+// Справочный объект — принадлежность сотрудников и спецификаций
+model Company {
+  id        String   @id @default(cuid())
+  code      String   @unique // Сокращённое наименование (2–4 символа)
+  name      String   // Полное наименование
+  erpId     Int?     @unique // ID из Global ERP (idOrganization)
+
+  // Стандартные реквизиты (российская специфика)
+  inn       String?  // ИНН (10 или 12 цифр)
+  kpp       String?  // КПП (9 цифр)
+  ogrn      String?  // ОГРН (13 цифр)
+  address   String?  // Юридический адрес
+  phone     String?  // Контактный телефон
+  email     String?  // Email компании
+  contactPerson String? // Контактное лицо
+
+  // Произвольные пользовательские поля (JSON)
+  // Позволяет хранить любые дополнительные данные без миграции БД
+  // Пример: { "расчётный счёт": "40702810...", "банк": "Сбербанк" }
+  customFields Json?  @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees      Employee[]
+  specifications Specification[]
+  users          User[]
+}
+
+// ─── 2.2.1 Участник обучения ─────────────────────────────────
+// Сотрудник компании или физическое лицо
+model Employee {
+  id        String   @id @default(cuid())
+  erpId     Int?     @unique // ID из Global ERP (Edu_Participant.id)
+  code      String?  // sCode из ERP
+  lastName  String   // Фамилия
+  firstName String   // Имя
+  middleName String? // Отчество
+  fullName  String   // ФИО (sFIO)
+  email     String?
+  phone     String?  // Телефон
+  note      String?  // Заметка
+  companyId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company      Company?      @relation(fields: [companyId], references: [id])
+  groupMembers GroupMember[]
+  user         User?         // Аккаунт пользователя (если есть)
+}
+
+// ─── 2.2.2 Курс обучения ────────────────────────────────────
+// Образовательная программа с прайсом
+model Course {
+  id              String   @id @default(cuid())
+  erpId           Int?     @unique // ID из Global ERP (Edu_Course.id)
+  code            String?  // sCode из ERP
+  name            String   // Название курса
+  description     String?  // Описание курса
+  durationDays    Int      // Длительность в днях
+  pricePerPerson  Float    // Цена за человека (руб.)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  trainingGroups TrainingGroup[]
+  priceHistory   PriceHistory[]
+}
+
+// Бонус: история цен (времязависимость прайса)
+model PriceHistory {
+  id             String   @id @default(cuid())
+  courseId        String
+  pricePerPerson Float
+  validFrom      DateTime @default(now())
+  validTo        DateTime?
+  createdAt      DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+// ─── 2.2.3 Учебная группа ───────────────────────────────────
+// Aggregate Root — основной объект автоматизации
+model TrainingGroup {
+  id              String            @id @default(cuid())
+  name            String?           // Название группы (опционально)
+  courseId         String
+  startDate       DateTime
+  endDate         DateTime
+  pricePerPerson  Float             // Зафиксированная цена на момент создания
+  status          TrainingStatus    @default(PLANNED)
+  specificationId String?
+
+  // Скидка (ручная от админа или по промокоду)
+  discountPercent Float?            // Процент скидки (0–100), null = без скидки
+  promoCodeId     String?           // Ссылка на промокод (если скидка по промокоду)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  course        Course         @relation(fields: [courseId], references: [id])
+  specification Specification? @relation(fields: [specificationId], references: [id])
+  promoCode     PromoCode?     @relation("GroupPromoCode", fields: [promoCodeId], references: [id])
+  members       GroupMember[]
+}
+
+enum TrainingStatus {
+  PLANNED     // Планируется
+  IN_PROGRESS // В процессе
+  COMPLETED   // Завершено
+  CANCELLED   // Отменено
+}
+
+// ─── 2.2.4 Участник группы ──────────────────────────────────
+// Связь сотрудника и группы + прогресс обучения
+model GroupMember {
+  id              String   @id @default(cuid())
+  groupId         String
+  employeeId      String
+  progressPercent Int      @default(0) // Процент завершения (0–100)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  group    TrainingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([groupId, employeeId]) // Сотрудник не может быть дважды в одной группе
+}
+
+// ─── 2.2.5 Спецификация ─────────────────────────────────────
+// Юридический документ — агрегирует стоимость групп + НДС 22%
+enum SpecStatus {
+  FORMED       // Сформирован
+  ISSUED       // Выставлен
+  PENDING      // Ждет уточнения
+  PAID         // Оплачен
+  ARCHIVED     // В архиве
+}
+
+model Specification {
+  id          String     @id @default(cuid())
+  number      String     @unique // Номер спецификации
+  date        DateTime   // Дата спецификации
+  companyId   String
+  status      SpecStatus @default(FORMED)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  company        Company         @relation(fields: [companyId], references: [id])
+  trainingGroups TrainingGroup[]
+}
+
+// ─── Авторизация и роли ─────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN // Суперадмин: полный доступ ко всему, управление администраторами
+  ADMIN       // Администратор: управление пользователями, курсами, XML, промокоды
+  USER        // Пользователь: просмотр, создание групп, использование промокодов
+}
+
+// Пользователь системы (не путать с Employee — участником обучения)
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  passwordHash       String   // bcrypt hash
+  name               String?  // Отображаемое имя
+  role               UserRole @default(USER)
+  mustChangePassword Boolean  @default(true) // Принудительная смена при первом входе
+  isActive           Boolean  @default(true)
+  employeeId         String?  @unique  // Привязка к участнику обучения
+  companyId          String?            // Привязка к компании (для ADMIN — его предприятие)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  employee           Employee? @relation(fields: [employeeId], references: [id])
+  company            Company?  @relation(fields: [companyId], references: [id])
+  createdByInvite    InviteLink? @relation("InviteUsedBy")
+}
+
+// Инвайт-ссылка для регистрации
+// Админ создаёт ссылку → отправляет сотруднику → тот регистрируется по ней
+model InviteLink {
+  id          String    @id @default(cuid())
+  token       String    @unique @default(cuid()) // UUID-токен в URL
+  role        UserRole  @default(USER) // Какую роль получит зарегистрировавшийся
+  maxUses     Int       @default(1)    // Сколько раз можно использовать (1 = одноразовая)
+  usedCount   Int       @default(0)    // Сколько раз уже использована
+  expiresAt   DateTime?               // Срок действия (null = бессрочно)
+  isActive    Boolean   @default(true)
+  createdById String?                 // Кто создал инвайт
+  companyId   String?                 // Для какой компании (фильтрация ADMIN)
+  createdAt   DateTime  @default(now())
+
+  usedBy    User?     @relation("InviteUsedBy", fields: [usedById], references: [id])
+  usedById  String?   @unique
+}
+
+// ─── Скидки и промокоды ─────────────────────────────────────
+
+model PromoCode {
+  id              String   @id @default(cuid())
+  code            String   @unique // Промокод (например: SPRING2026)
+  discountPercent Float    // Процент скидки (0–100)
+  description     String?  // Описание / комментарий
+  maxUses         Int?     // Лимит использований (null = безлимит)
+  usedCount       Int      @default(0)
+  isActive        Boolean  @default(true)
+  validFrom       DateTime @default(now())
+  validTo         DateTime? // Срок действия
+  createdAt       DateTime @default(now())
+
+  appliedToGroups TrainingGroup[] @relation("GroupPromoCode")
+}
+
+// ─── Скидка на группу (ручная или по промокоду) ─────────────
+// Хранится в TrainingGroup для прозрачности расчётов
+
+// ─── Лог интеграции (XML импорт/экспорт) ───────────────────
+model IntegrationLog {
+  id        String   @id @default(cuid())
+  action    String   // "import" | "export"
+  entityType String  // "Edu_Participant" | "Edu_Course" | "TrainingGroup"
+  fileName  String?  // Original filename for imports
+  recordsCreated Int @default(0)
+  recordsUpdated Int @default(0)
+  recordsErrored Int @default(0)
+  details   Json?    // Additional details (errors, etc.)
+  userId    String?  // Who performed the action
+  createdAt DateTime @default(now())
+}
+
+// ─── Корзина удалений (для отката действий админа) ─────────
+// Суперадмин может восстановить удалённые объекты
+model DeletedItem {
+  id         String   @id @default(cuid())
+  entityType String   // "Course" | "TrainingGroup" | "Employee" и т.д.
+  entityId   String   // ID удалённого объекта
+  entityData Json     // Полный снимок данных на момент удаления
+  deletedBy  String   // userId кто удалил
+  reason     String?  // Причина удаления (опционально)
+  restoredAt DateTime? // Если восстановлен — дата восстановления
+  createdAt  DateTime @default(now())
 }

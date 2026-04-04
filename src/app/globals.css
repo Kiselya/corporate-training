@@ -128,3 +128,42 @@
     @apply font-sans;
   }
 }
+
+/* Стили для печати / экспорта в PDF */
+@media print {
+  /* Скрываем sidebar, кнопки, навигацию */
+  aside { display: none !important; }
+  button { display: none !important; }
+  nav { display: none !important; }
+  [role="tablist"] { display: none !important; }
+
+  /* Контент на всю ширину */
+  main {
+    margin: 0 !important;
+    padding: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Убираем overflow для печати графиков */
+  .overflow-hidden, .overflow-auto, .overflow-y-auto {
+    overflow: visible !important;
+  }
+
+  /* Белый фон */
+  body, main, .bg-slate-50 {
+    background: white !important;
+  }
+
+  /* Заголовок отчёта */
+  h1::after {
+    content: " — Отчет";
+    font-size: 0.6em;
+    color: #94A3B8;
+  }
+
+  /* Скрываем элементы с классом print-hidden в PDF */
+  .print-hidden {
+    display: none !important;
+  }
+}

@@ -175,7 +175,7 @@ model GroupMember {
   updatedAt       DateTime @updatedAt
 
   group    TrainingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  employee Employee      @relation(fields: [employeeId], references: [id])
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, employeeId]) // Сотрудник не может быть дважды в одной группе
 }
@@ -227,7 +227,8 @@ model User {
 
   employee           Employee? @relation(fields: [employeeId], references: [id])
   company            Company?  @relation(fields: [companyId], references: [id])
-  createdByInvite    InviteLink? @relation("InviteUsedBy")
+  inviteLinkId       String?     // По какому инвайту зарегистрирован
+  createdByInvite    InviteLink? @relation("InviteUsedBy", fields: [inviteLinkId], references: [id])
 }
 
 // Инвайт-ссылка для регистрации
@@ -244,8 +245,7 @@ model InviteLink {
   companyId   String?                 // Для какой компании (фильтрация ADMIN)
   createdAt   DateTime  @default(now())
 
-  usedBy    User?     @relation("InviteUsedBy", fields: [usedById], references: [id])
-  usedById  String?   @unique
+  usedByUsers User[]   @relation("InviteUsedBy")
 }
 
 // ─── Скидки и промокоды ─────────────────────────────────────

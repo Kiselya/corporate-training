@@ -87,17 +87,16 @@ export async function POST(request: Request) {
           name: name?.trim() || null,
           role: invite.role,
           mustChangePassword: true,
-          // Привязка к компании из инвайта (если админ создал инвайт для своей компании)
           companyId: invite.companyId || null,
+          inviteLinkId: invite.id,
         },
       });
 
-      // Обновление счётчика использований и привязка пользователя
+      // Обновление счётчика использований
       await tx.inviteLink.update({
         where: { id: invite.id },
         data: {
           usedCount: { increment: 1 },
-          usedById: newUser.id,
         },
       });
 

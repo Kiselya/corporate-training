@@ -27,7 +27,7 @@ export async function GET() {
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        usedBy: {
+        usedByUsers: {
           select: { id: true, email: true, name: true, role: true },
         },
       },

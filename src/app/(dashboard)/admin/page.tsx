@@ -56,7 +56,7 @@ interface Invite {
   maxUses: number;
   usedCount: number;
   isActive: boolean;
-  usedBy?: { id: string; email: string; name: string | null; role: string } | null;
+  usedByUsers?: { id: string; email: string; name: string | null; role: string }[];
 }
 
 interface PromoCode {
@@ -953,12 +953,14 @@ function InvitesTab() {
                     {invite.usedCount}/{invite.maxUses}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {invite.usedBy ? (
-                      <div>
-                        <span className="font-medium">{invite.usedBy.name || invite.usedBy.email}</span>
-                        {invite.usedBy.name && (
-                          <span className="block text-xs text-slate-400">{invite.usedBy.email}</span>
-                        )}
+                    {invite.usedByUsers && invite.usedByUsers.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {invite.usedByUsers.map((u) => (
+                          <div key={u.id} className="text-xs">
+                            <span className="font-medium">{u.name || u.email}</span>
+                            {u.name && <span className="text-slate-400 ml-1">{u.email}</span>}
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <span className="text-slate-400">—</span>

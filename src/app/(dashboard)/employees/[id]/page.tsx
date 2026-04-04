@@ -139,7 +139,11 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
       .then((r) => r.json())
-      .then(setEmployee)
+      .then((data) => {
+        setEmployee(data);
+        // Проверяем есть ли уже аккаунт у сотрудника
+        if (data.user) setHasAccount(true);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);

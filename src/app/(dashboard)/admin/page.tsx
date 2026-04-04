@@ -739,8 +739,8 @@ function InvitesTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         if (newEmail.trim() && data.emailSent) {
           setCreateResult(`Приглашение отправлено на ${newEmail.trim()}`);
         } else if (newEmail.trim() && !data.emailSent) {
@@ -752,11 +752,12 @@ function InvitesTab() {
         setNewMaxUses("10");
         setNewEmail("");
         fetchInvites();
-        // Auto-close after showing result
         setTimeout(() => {
           setCreateOpen(false);
           setCreateResult(null);
         }, 3000);
+      } else {
+        alert(data?.error || "Ошибка создания инвайта");
       }
     } finally {
       setCreating(false);

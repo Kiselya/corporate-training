@@ -8,7 +8,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+
     const { id } = await params;
+
+    // ADMIN может смотреть только свою компанию
+    if (session.role === "ADMIN" && session.companyId && id !== session.companyId) {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
 
     const company = await prisma.company.findUnique({
       where: { id },

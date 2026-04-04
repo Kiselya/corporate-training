@@ -44,7 +44,7 @@ interface MyProfileData {
     endDate: string;
     status: string;
     pricePerPerson: number;
-    course: { id: string; name: string; durationDays: number };
+    course: { id: string; code: string | null; name: string; durationDays: number };
     memberCount: number;
     avgProgress: number;
     myProgress: number;
@@ -304,7 +304,10 @@ export default function MyCoursesPage() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
-                        <CardTitle className="text-base">{group.course.name}</CardTitle>
+                        <CardTitle
+                          className="text-base text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => window.location.href = `/courses/${group.course.code || group.course.id}`}
+                        >{group.course.name}</CardTitle>
                         {group.name && <p className="text-sm text-slate-500">{group.name}</p>}
                       </div>
                       <Badge className={STATUS_CONFIG[group.status]?.className}>

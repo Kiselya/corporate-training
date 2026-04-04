@@ -48,7 +48,8 @@ export async function GET(
     }
 
     // ADMIN может видеть только группы с сотрудниками своей компании
-    if (session.role === "ADMIN" && session.companyId) {
+    const isAdmin = session.role === "ADMIN" && session.companyId;
+    if (isAdmin) {
       const hasCompanyMembers = group.members.some(
         (m) => m.employee?.companyId === session.companyId
       );
@@ -57,14 +58,10 @@ export async function GET(
       }
     }
 
-    // Вычисляемые поля (бизнес-логика расчёта стоимости и прогресса)
+    // Вычисляемые поля — по ВСЕМ участникам (бизнес-данные группы)
     const memberCount = group.members.length;
-
-    // Стоимость группы с учётом скидки
     const discount = group.discountPercent ?? 0;
     const totalCost = group.pricePerPerson * memberCount * (1 - discount / 100);
-
-    // Средний прогресс: среднее арифметическое progressPercent всех участников
     const avgProgress =
       memberCount > 0
         ? Math.round(
@@ -73,8 +70,14 @@ export async function GET(
           )
         : 0;
 
+    // ADMIN видит только сотрудников своей компании
+    const visibleMembers = isAdmin
+      ? group.members.filter((m) => m.employee?.companyId === session.companyId)
+      : group.members;
+
     return NextResponse.json({
       ...group,
+      members: visibleMembers,
       memberCount,
       totalCost,
       avgProgress,

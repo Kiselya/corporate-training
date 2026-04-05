@@ -105,8 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch("/api/auth/stop-impersonate", { method: "POST" });
       if (res.ok) {
-        await fetchUser();
-        router.push("/");
+        window.location.href = "/";
       }
     } catch (e) {
       console.error("Failed to stop impersonating:", e);

@@ -289,7 +289,7 @@ export default function CourseDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => window.location.href = "/courses"}
+          onClick={() => window.location.href = isAdmin ? "/courses" : "/my-courses"}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

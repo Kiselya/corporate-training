@@ -24,7 +24,7 @@ interface GroupData {
   startDate: string;
   endDate: string;
   status: string;
-  course: { name: string; code: string | null };
+  course: { id: string; name: string; code: string | null };
   myProgress: number;
   avgProgress: number;
   memberCount: number;
@@ -35,6 +35,7 @@ export default function MyGroupsPage() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<GroupData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/my-profile")
@@ -85,7 +86,11 @@ export default function MyGroupsPage() {
           {groups.map((group) => {
             const statusCfg = STATUS_CONFIG[group.status] || STATUS_CONFIG.PLANNED;
             return (
-              <Card key={group.id}>
+              <Card
+                key={group.id}
+                className="cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() => setExpandedId(expandedId === group.id ? null : group.id)}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div>
@@ -95,7 +100,10 @@ export default function MyGroupsPage() {
                       <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
                         <span className="flex items-center gap-1">
                           <BookOpen className="h-3.5 w-3.5" />
-                          {group.course.name}
+                          <span
+                            className="text-blue-600 hover:underline"
+                            onClick={(e) => { e.stopPropagation(); window.location.href = `/courses/${group.course.code || group.course.id}`; }}
+                          >{group.course.name}</span>
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3.5 w-3.5" />
@@ -107,10 +115,16 @@ export default function MyGroupsPage() {
                         </span>
                       </div>
                     </div>
-                    <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
+                      <span className="text-sm font-semibold text-blue-600">{group.myProgress}%</span>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+
+                {/* Раскрывающиеся детали */}
+                {expandedId === group.id && (
+                <CardContent className="space-y-4 border-t pt-4">
                   {/* Мой прогресс */}
                   <div>
                     <div className="flex items-center justify-between text-sm mb-1">
@@ -138,6 +152,7 @@ export default function MyGroupsPage() {
                     </div>
                   </div>
                 </CardContent>
+                )}
               </Card>
             );
           })}

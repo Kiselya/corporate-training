@@ -14,7 +14,7 @@ export async function GET() {
           orderBy: { orderIndex: "asc" },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { code: "asc" },
     });
 
     return NextResponse.json(courses);

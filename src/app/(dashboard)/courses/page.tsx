@@ -41,10 +41,13 @@ interface Course {
   description: string | null;
   durationDays: number;
   pricePerPerson: number;
+  createdAt: string;
   _count: {
     trainingGroups: number;
   };
 }
+
+type CourseSortField = "code" | "duration" | "date";
 
 export default function CoursesPage() {
   const { user } = useAuth();
@@ -52,6 +55,7 @@ export default function CoursesPage() {
   const showPrice = isSuperAdmin(user?.role);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState<CourseSortField>("code");
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -75,15 +79,25 @@ export default function CoursesPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredCourses = useMemo(() => {
-    if (!searchQuery) return courses;
-    const q = searchQuery.toLowerCase();
-    return courses.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.code || "").toLowerCase().includes(q) ||
-        (c.description || "").toLowerCase().includes(q)
-    );
-  }, [courses, searchQuery]);
+    let result = courses;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.code || "").toLowerCase().includes(q) ||
+          (c.description || "").toLowerCase().includes(q)
+      );
+    }
+    return [...result].sort((a, b) => {
+      switch (sortField) {
+        case "code": return (a.code || "").localeCompare(b.code || "");
+        case "duration": return a.durationDays - b.durationDays;
+        case "date": return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        default: return 0;
+      }
+    });
+  }, [courses, searchQuery, sortField]);
 
   const fetchCourses = useCallback(async () => {
     try {
@@ -232,7 +246,7 @@ export default function CoursesPage() {
       </div>
 
       {/* Поиск */}
-      {courses.length > 0 && (
+      {courses.length > 0 && (<>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
@@ -242,7 +256,25 @@ export default function CoursesPage() {
             className="pl-9"
           />
         </div>
-      )}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span>Сортировка:</span>
+          {([
+            { field: "code" as CourseSortField, label: "Код" },
+            { field: "duration" as CourseSortField, label: "Длительность" },
+            { field: "date" as CourseSortField, label: "Дата добавления" },
+          ]).map(({ field, label }) => (
+            <button
+              key={field}
+              onClick={() => setSortField(field)}
+              className={`px-2 py-1 rounded transition-colors ${
+                sortField === field ? "bg-blue-600 text-white" : "bg-slate-100 hover:bg-slate-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </>)}
 
       <Card>
         <CardContent className="p-0">
@@ -270,7 +302,7 @@ export default function CoursesPage() {
                   <TableHead>Название</TableHead>
                   <TableHead className="text-right">Длительность</TableHead>
                   {showPrice && <TableHead className="text-right">Цена/чел</TableHead>}
-                  <TableHead className="text-right">Действия</TableHead>
+                  {isAdmin && <TableHead className="text-right">Действия</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -292,7 +324,7 @@ export default function CoursesPage() {
                         {formatRubles(course.pricePerPerson)}
                       </TableCell>
                     )}
-                    <TableCell className="text-right">
+                    {isAdmin && <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {isAdmin && (
                           <Button
@@ -319,7 +351,7 @@ export default function CoursesPage() {
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))}
               </TableBody>

@@ -1,6 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Ленивая инициализация — не падаем при build, если ключа нет
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  return new Resend(key);
+}
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "onboarding@resend.dev"; // resend.dev works for testing
 
@@ -9,6 +14,8 @@ const FROM_EMAIL = process.env.EMAIL_FROM || "onboarding@resend.dev"; // resend.
  */
 export async function sendInviteEmail(to: string, inviteUrl: string, role: string) {
   const roleLabel = role === "ADMIN" ? "Администратор" : "Пользователь";
+  const resend = getResend();
+  if (!resend) return { success: false, error: "RESEND_API_KEY не настроен" };
 
   try {
     const { data, error } = await resend.emails.send({
@@ -53,6 +60,9 @@ export async function sendInviteEmail(to: string, inviteUrl: string, role: strin
  * Уведомление о начале обучения
  */
 export async function sendTrainingStartEmail(to: string, courseName: string, startDate: string, groupName: string) {
+  const resend = getResend();
+  if (!resend) return { success: false, error: "RESEND_API_KEY не настроен" };
+
   try {
     const { data, error } = await resend.emails.send({
       from: `Корпоративное обучение <${FROM_EMAIL}>`,
@@ -99,6 +109,9 @@ export async function sendTrainingStartEmail(to: string, courseName: string, sta
  * Уведомление о завершении обучения
  */
 export async function sendTrainingCompleteEmail(to: string, courseName: string, progress: number) {
+  const resend = getResend();
+  if (!resend) return { success: false, error: "RESEND_API_KEY не настроен" };
+
   try {
     const { data, error } = await resend.emails.send({
       from: `Корпоративное обучение <${FROM_EMAIL}>`,

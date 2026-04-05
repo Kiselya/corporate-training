@@ -209,6 +209,7 @@ function filterByPeriod(
       return year === currentYear && monthIdx === currentMonth;
     }
     if (period === "quarter") {
+      // Календарный квартал: Q1 (Jan-Mar), Q2 (Apr-Jun), Q3 (Jul-Sep), Q4 (Oct-Dec)
       const currentQ = Math.floor(currentMonth / 3);
       const itemQ = Math.floor(monthIdx / 3);
       return year === currentYear && itemQ === currentQ;

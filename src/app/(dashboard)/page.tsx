@@ -539,6 +539,12 @@ export default function DashboardPage() {
   }
 
   const filteredRevenue = filterByPeriod(data.financial.revenueByMonth, period);
+
+  // Фильтруем stacked data по тем же месяцам
+  const filteredMonths = new Set(filteredRevenue.map((r) => r.month));
+  const filteredRevenueByCompany = data.financial.revenueByMonthByCompany.filter(
+    (d) => filteredMonths.has(d.month as string)
+  );
   const filteredTotal = filteredRevenue.reduce(
     (sum, r) => sum + r.revenue,
     0,
@@ -884,9 +890,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  {data.financial.revenueByMonthByCompany.length > 0 && Object.keys(data.financial.companyNames).length > 0 ? (
+                  {filteredRevenueByCompany.length > 0 && Object.keys(data.financial.companyNames).length > 0 ? (
                     <BarChart
-                      data={data.financial.revenueByMonthByCompany}
+                      data={filteredRevenueByCompany}
                       margin={{ left: 10, right: 20, top: 15, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />

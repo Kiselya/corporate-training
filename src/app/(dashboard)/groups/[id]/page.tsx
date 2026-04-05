@@ -81,6 +81,7 @@ const STATUSES = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
 
 interface Employee {
   id: string;
+  code: string | null;
   fullName: string;
   email: string | null;
   company: { id: string; name: string } | null;
@@ -569,15 +570,17 @@ export default function GroupDetailPage() {
                 {group.memberCount} участн. в группе
               </CardDescription>
             </div>
-            <Button
-              onClick={() => {
-                setSelectedEmployeeId(null);
-                setAddMemberOpen(true);
-              }}
-            >
-              <Plus className="mr-1.5 h-4 w-4" />
-              Добавить участника
-            </Button>
+            {(authUser?.role === "ADMIN" || authUser?.role === "SUPER_ADMIN") && (
+              <Button
+                onClick={() => {
+                  setSelectedEmployeeId(null);
+                  setAddMemberOpen(true);
+                }}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Добавить участника
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -603,7 +606,16 @@ export default function GroupDetailPage() {
                   return (
                     <TableRow key={member.id}>
                       <TableCell className="font-medium">
-                        {member.employee.fullName}
+                        {authUser?.role === "SUPER_ADMIN" || authUser?.role === "ADMIN" ? (
+                          <a
+                            href={`/employees/${member.employee.code || member.employee.id}`}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {member.employee.fullName}
+                          </a>
+                        ) : (
+                          member.employee.fullName
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {member.employee.email || "---"}

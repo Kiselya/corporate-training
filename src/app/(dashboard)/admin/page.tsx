@@ -717,18 +717,17 @@ function UsersTab({ currentUser }: { currentUser: { id: string; email: string; n
             </div>
             <div className="space-y-2">
               <Label>Роль</Label>
-              <Select value={newUserRole} onValueChange={(val) => val && setNewUserRole(val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите роль" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USER">Пользователь</SelectItem>
-                  <SelectItem value="ADMIN">Администратор</SelectItem>
-                  {isSuperAdmin(currentUser.role as any) && (
-                    <SelectItem value="SUPER_ADMIN">Суперадмин</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <select
+                value={newUserRole}
+                onChange={(e) => setNewUserRole(e.target.value)}
+                className="w-full h-10 px-3 border rounded-md text-sm bg-white"
+              >
+                <option value="USER">Пользователь</option>
+                <option value="ADMIN">Администратор</option>
+                {isSuperAdmin(currentUser.role as any) && (
+                  <option value="SUPER_ADMIN">Суперадмин</option>
+                )}
+              </select>
             </div>
           </div>
           <DialogFooter>

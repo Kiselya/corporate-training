@@ -351,15 +351,14 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
             </div>
             <div className="space-y-2">
               <Label>Роль</Label>
-              <Select value={grantRole} onValueChange={(val) => val && setGrantRole(val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите роль" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USER">Пользователь</SelectItem>
-                  <SelectItem value="ADMIN">Администратор</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                value={grantRole}
+                onChange={(e) => setGrantRole(e.target.value)}
+                className="w-full h-10 px-3 border rounded-md text-sm bg-white"
+              >
+                <option value="USER">Пользователь</option>
+                <option value="ADMIN">Администратор</option>
+              </select>
             </div>
           </div>
           <DialogFooter>

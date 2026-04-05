@@ -113,7 +113,7 @@ export default function EmployeeProfilePage({ params }: { params: Promise<{ id: 
           password: grantPassword,
           name: employee?.fullName,
           role: grantRole,
-          employeeId: id,
+          employeeId: employee?.id,
           companyId: employee?.company?.id,
         }),
       });
